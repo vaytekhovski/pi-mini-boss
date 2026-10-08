@@ -1,61 +1,71 @@
 /**
  * pi-mini-boss `ask` tool — asks the user through a right-side overlay panel.
  *
- * The overlay is our own component (not the removed rpiv questionnaire): it
- * supports many options, pre-selected checkboxes, keyboard navigation, and keeps
- * most of the transcript visible because it is anchored to the right edge.
+ * One call can carry several questions, shown as tabs (←/→). The panel can be
+ * hidden with Ctrl+H (and shown again) so the transcript can be scrolled while
+ * it stays open.
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 const ASK_TOOL_NAME = "ask";
+/** Hide/show the panel so the transcript can be scrolled. */
+const HIDE_KEY = "ctrl+h";
+
+const OptionSchema = Type.Object({
+  label: Type.String({ description: "Short option label" }),
+  description: Type.Optional(Type.String({ description: "What the option means" })),
+  selected: Type.Optional(Type.Boolean({ description: "Pre-select this option" })),
+});
 
 const ASK_PARAMETERS = Type.Object({
-  question: Type.String({ description: "The question to ask the user" }),
-  header: Type.Optional(Type.String({ description: "Short label for the question" })),
-  multiSelect: Type.Optional(
-    Type.Boolean({ description: "Allow choosing several options (default: single)" }),
-  ),
-  options: Type.Array(
+  questions: Type.Array(
     Type.Object({
-      label: Type.String({ description: "Short option label" }),
-      description: Type.Optional(Type.String({ description: "What the option means" })),
-      selected: Type.Optional(
-        Type.Boolean({ description: "Pre-select this option (multi-select)" }),
-      ),
+      question: Type.String({ description: "The question to ask" }),
+      header: Type.Optional(Type.String({ description: "Short tab label" })),
+      multiSelect: Type.Optional(Type.Boolean({ description: "Allow several choices" })),
+      options: Type.Array(OptionSchema, { minItems: 2, maxItems: 12 }),
     }),
-    { minItems: 2, maxItems: 12, description: "Answer choices" },
+    { minItems: 1, maxItems: 8, description: "One or more questions" },
   ),
 });
 
-interface AskParams {
+interface OptionSpec {
+  label: string;
+  description?: string;
+  selected?: boolean;
+}
+interface QuestionSpec {
   question: string;
   header?: string;
   multiSelect?: boolean;
-  options: Array<{ label: string; description?: string; selected?: boolean }>;
+  options: OptionSpec[];
 }
-
-interface AskAnswer {
-  labels: string[];
+interface AskParams {
+  questions: QuestionSpec[];
+}
+interface AskResult {
+  answers: Array<{ header: string; labels: string[] }>;
   cancelled: boolean;
 }
 
-/** Build the overlay component for one question. */
-// The factory's `tui`/`theme` types differ across pi-tui versions; the surface we
-// use is tiny, so keep the parameters loose.
-function createQuestionComponent(
+/** The narrow surface of the overlay handle we need. */
+type HideHandle = { setHidden(hidden: boolean): void };
+
+function createQuestionnaire(
   tui: any,
   theme: any,
-  done: (answer: AskAnswer) => void,
-  params: AskParams,
+  done: (result: AskResult) => void,
+  getHandle: () => HideHandle | undefined,
+  questions: QuestionSpec[],
 ) {
-  const multi = params.multiSelect === true;
-  const options = params.options;
-  const selected = new Set<number>(
-    options.map((option, index) => (option.selected ? index : -1)).filter((index) => index >= 0),
+  const selected = questions.map(
+    (q) => new Set<number>(q.options.map((o, i) => (o.selected ? i : -1)).filter((i) => i >= 0)),
   );
-  let cursor = 0;
+  const cursor = questions.map(() => 0);
+  let tab = 0;
+  let hidden = false;
   let cached: string[] | undefined;
 
   const refresh = () => {
@@ -64,55 +74,85 @@ function createQuestionComponent(
   };
 
   const submit = () => {
-    const labels = [...selected].sort((a, b) => a - b).map((index) => options[index].label);
-    if (labels.length === 0) {
-      return;
-    }
-    done({ labels, cancelled: false });
+    done({
+      answers: questions.map((q, qi) => ({
+        header: q.header || q.question,
+        labels: [...selected[qi]].sort((a, b) => a - b).map((i) => q.options[i].label),
+      })),
+      cancelled: false,
+    });
   };
 
-  const toggle = (index: number) => {
-    if (multi) {
-      selected.has(index) ? selected.delete(index) : selected.add(index);
+  const toggle = (qi: number, oi: number) => {
+    if (questions[qi].multiSelect) {
+      selected[qi].has(oi) ? selected[qi].delete(oi) : selected[qi].add(oi);
     } else {
-      selected.clear();
-      selected.add(index);
+      selected[qi].clear();
+      selected[qi].add(oi);
     }
   };
 
   function handleInput(data: string): void {
+    if (matchesKey(data, HIDE_KEY)) {
+      hidden = !hidden;
+      getHandle()?.setHidden(hidden);
+      refresh();
+      return;
+    }
+    if (hidden) {
+      return;
+    }
+    const q = questions[tab];
+    if (matchesKey(data, Key.left)) {
+      tab = Math.max(0, tab - 1);
+      refresh();
+      return;
+    }
+    if (matchesKey(data, Key.right)) {
+      tab = Math.min(questions.length - 1, tab + 1);
+      refresh();
+      return;
+    }
     if (matchesKey(data, Key.up)) {
-      cursor = Math.max(0, cursor - 1);
+      cursor[tab] = Math.max(0, cursor[tab] - 1);
       refresh();
       return;
     }
     if (matchesKey(data, Key.down)) {
-      cursor = Math.min(options.length - 1, cursor + 1);
+      cursor[tab] = Math.min(q.options.length - 1, cursor[tab] + 1);
       refresh();
       return;
     }
     if (matchesKey(data, Key.space)) {
-      toggle(cursor);
+      toggle(tab, cursor[tab]);
       refresh();
       return;
     }
     if (matchesKey(data, Key.enter)) {
-      submit();
+      if (tab < questions.length - 1) {
+        tab += 1;
+        refresh();
+      } else {
+        submit();
+      }
       return;
     }
     if (matchesKey(data, Key.escape)) {
-      done({ labels: [], cancelled: true });
+      done({ answers: [], cancelled: true });
       return;
     }
     const match = /^[1-9]$/.exec(data);
     if (match) {
       const index = Number(match[0]) - 1;
-      if (index >= options.length) {
+      if (index >= q.options.length) {
         return;
       }
-      cursor = index;
-      toggle(index);
-      if (multi) {
+      cursor[tab] = index;
+      toggle(tab, index);
+      if (q.multiSelect) {
+        refresh();
+      } else if (tab < questions.length - 1) {
+        tab += 1;
         refresh();
       } else {
         submit();
@@ -125,26 +165,39 @@ function createQuestionComponent(
       return cached;
     }
     const w = Math.max(1, width);
-    const lines: string[] = [theme.fg("accent", "─".repeat(w))];
-    if (params.header) {
-      lines.push(...wrapTextWithAnsi(theme.fg("accent", params.header), w));
+    const lines: string[] = [];
+
+    if (questions.length > 1) {
+      const tabs = questions.map((q, i) => {
+        const label = ` ${q.header || `Q${i + 1}`} `;
+        return i === tab ? theme.fg("accent", theme.fg("text", label)) : theme.fg("dim", label);
+      });
+      lines.push(...wrapTextWithAnsi(tabs.join(theme.fg("dim", "│")), w));
+      lines.push(...wrapTextWithAnsi(theme.fg("dim", "←/→ — вопросы · Ctrl+H — скрыть/показать"), w));
     }
-    lines.push(...wrapTextWithAnsi(theme.fg("text", params.question), w));
+    lines.push(theme.fg("accent", "─".repeat(w)));
+
+    const q = questions[tab];
+    lines.push(...wrapTextWithAnsi(theme.fg("text", q.question), w));
     lines.push("");
-    options.forEach((option, index) => {
-      const mark = multi ? (selected.has(index) ? "[x]" : "[ ]") : selected.has(index) ? "(•)" : "( )";
-      const prefix = index === cursor ? theme.fg("accent", "> ") : "  ";
+
+    q.options.forEach((option, index) => {
+      const mark = q.multiSelect ? (selected[tab].has(index) ? "[x]" : "[ ]") : selected[tab].has(index) ? "(•)" : "( )";
+      const prefix = index === cursor[tab] ? theme.fg("accent", "> ") : "  ";
       lines.push(...wrapTextWithAnsi(`${prefix}${mark} ${index + 1}. ${option.label}`, w));
       if (option.description) {
         lines.push(...wrapTextWithAnsi(`      ${theme.fg("muted", option.description)}`, w));
       }
     });
+
     lines.push("");
-    const hint = multi
-      ? "↑↓ · Space/цифры — отметить · Enter — ок · Esc — отмена"
-      : "↑↓/цифры — выбрать · Enter — ок · Esc — отмена";
+    const last = tab === questions.length - 1;
+    const hint = q.multiSelect
+      ? `↑↓ · Space/цифры — отметить · Enter — ${last ? "готово" : "далее"} · Esc — отмена`
+      : `↑↓/цифры — выбрать · Enter — ${last ? "готово" : "далее"} · Esc — отмена`;
     lines.push(...wrapTextWithAnsi(theme.fg("dim", hint), w));
     lines.push(theme.fg("accent", "─".repeat(w)));
+
     cached = lines;
     return lines;
   }
@@ -171,10 +224,10 @@ export function registerAskTool(pi: ExtensionAPI): void {
     name: ASK_TOOL_NAME,
     label: "Ask",
     description:
-      "Ask the user a question with options through a right-side overlay panel. Supports single/multi choice and pre-selected options. Returns the chosen labels.",
-    promptSnippet: "Ask the user a question via a panel",
+      "Ask the user one or more questions with options through a right-side overlay panel. Questions are shown as tabs (←/→). Supports single/multi choice and pre-selected options. Returns the chosen labels per question.",
+    promptSnippet: "Ask the user questions via a panel",
     promptGuidelines: [
-      "Use `ask` for structured questions (role, choices, confirmations) — it keeps the transcript scroll intact.",
+      "Use `ask` for structured questions (role, choices, confirmations) — put related questions in one call; they become tabs.",
       "Set selected:true on the option you recommend as the default.",
     ],
     parameters: ASK_PARAMETERS,
@@ -185,8 +238,14 @@ export function registerAskTool(pi: ExtensionAPI): void {
         return text("No interactive UI available — ask the user in plain text.");
       }
       const input = params as AskParams;
-      const result = await ctx.ui.custom<AskAnswer | null>(
-        (tui, theme, _kb, done) => createQuestionComponent(tui, theme, done, input),
+      if (input.questions.length === 0) {
+        return text("No questions provided.");
+      }
+
+      let handle: HideHandle | undefined;
+      const result = await ctx.ui.custom<AskResult | null>(
+        (tui, theme, _kb, done) =>
+          createQuestionnaire(tui, theme, done, () => handle, input.questions),
         {
           overlay: true,
           overlayOptions: {
@@ -195,12 +254,19 @@ export function registerAskTool(pi: ExtensionAPI): void {
             width: "42%",
             margin: { right: 1 },
           },
+          onHandle: (h: HideHandle) => {
+            handle = h;
+          },
         },
       );
+
       if (!result || result.cancelled) {
         return text("User cancelled the question.");
       }
-      return text(`User answered: ${result.labels.join(", ")}`);
+      const summary = result.answers
+        .map((a) => `${a.header}: ${a.labels.join(", ") || "(none)"}`)
+        .join("; ");
+      return text(`User answered — ${summary}`);
     },
   });
 }
