@@ -102,4 +102,18 @@ export function registerBootstrap(pi: ExtensionAPI): void {
       pi.sendUserMessage(buildOnboardPrompt());
     },
   });
+
+  pi.registerCommand("clear", {
+    description: "Очистить окно вывода",
+    handler: async (_args, ctx) => {
+      if (!ctx.hasUI) {
+        return;
+      }
+      await ctx.ui.custom<void>((tui, _theme, _kb, done) => {
+        tui.terminal.clearScreen();
+        done(undefined);
+        return { render: (): string[] => [], invalidate: (): void => {} };
+      });
+    },
+  });
 }
