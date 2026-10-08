@@ -167,26 +167,19 @@ function createQuestionnaire(
     });
   };
 
-  /** Choose option `index` on the current question, then advance/submit. */
-  const chooseAndAdvance = (index: number) => {
+  /**
+   * Toggle/record option `index` on the current question. Never switches tabs:
+   * Enter has to behave the same everywhere, ←/→ moves between questions.
+   */
+  const choose = (index: number) => {
     const q = questions[tab];
     if (q.multiSelect) {
       selected[tab].has(index) ? selected[tab].delete(index) : selected[tab].add(index);
-      refresh();
-      return;
-    }
-    selected[tab].clear();
-    selected[tab].add(index);
-    advance();
-  };
-
-  const advance = () => {
-    if (tab < questions.length) {
-      tab += 1;
-      refresh();
     } else {
-      submit();
+      selected[tab].clear();
+      selected[tab].add(index);
     }
+    refresh();
   };
 
   function handleInput(data: string): void {
@@ -225,7 +218,7 @@ function createQuestionnaire(
         return;
       }
       if (questions[tab].options.length > 0) {
-        chooseAndAdvance(cursor[tab]);
+        choose(cursor[tab]);
       }
       return;
     }
@@ -240,7 +233,7 @@ function createQuestionnaire(
     if (match) {
       const index = Number(match[0]) - 1;
       if (index < questions[tab].options.length) {
-        chooseAndAdvance(index);
+        choose(index);
       }
     }
   }
