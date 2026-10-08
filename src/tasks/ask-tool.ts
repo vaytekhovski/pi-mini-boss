@@ -149,11 +149,19 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       return;
     }
     if (matchesKey(data, Key.enter)) {
-      // Empty question: Enter sets the highlighted value. The next Enter moves on.
-      if (tab < REVIEW && selected[tab].size === 0 && questions[tab].options.length > 0) {
-        selected[tab].add(cursor[tab]);
-        refresh();
-        return;
+      // Enter records the highlighted choice first; a further Enter moves on.
+      if (tab < REVIEW && questions[tab].options.length > 0) {
+        const index = cursor[tab];
+        if (!selected[tab].has(index)) {
+          if (questions[tab].multiSelect) {
+            selected[tab].add(index);
+          } else {
+            selected[tab].clear();
+            selected[tab].add(index);
+          }
+          refresh();
+          return;
+        }
       }
       advance();
       return;
