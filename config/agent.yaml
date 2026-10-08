@@ -33,15 +33,8 @@ required_extensions: []
 # Рекомендуемые и опциональные расширения. `group` → отдельная вкладка в онбординге;
 # `selected: false` = опциональное (без галочки по умолчанию).
 recommended_extensions:
-  # Ядро
-  - { name: pi-subagents, why: "делегирование и параллельные субагенты", group: Ядро }
-  - { name: ponytail, why: "лаконичный режим, меньше токенов", group: Ядро }
-  - { name: pi-web-access, why: "доступ в интернет (web_search, fetch_content)", group: Ядро }
-  - { name: billion-context-pi, why: "сжатие контекста, длинные сессии", group: Ядро }
-  - { name: pi-background-tasks, why: "долгие команды в фоне", group: Ядро }
-  - { name: pi-goal-x, why: "постоянные цели агента", group: Ядро }
-
   # Контекст и сессии
+  - { name: billion-context-pi, why: "сжатие контекста, длинные сессии", group: Контекст }
   - { name: pi-cache-optimizer, why: "кэш промптов и статистика в футере", group: Контекст, selected: false }
   - { name: pi-posthorse, why: "смена контекста без суммаризации", group: Контекст, selected: false }
   - { name: context-mode, why: "песочница + FTS5-база знаний", group: Контекст, selected: false }
@@ -49,6 +42,7 @@ recommended_extensions:
   - { name: pi-btw, why: "побочные вопросы в стороне", group: Контекст, selected: false }
 
   # Качество
+  - { name: ponytail, why: "лаконичный режим, меньше токенов", group: Качество }
   - { name: pi-simplify, why: "ревью свежих правок на ясность", group: Качество, selected: false }
   - { name: "@plannotator/pi-extension", why: "ревью плана и PR с аннотациями", group: Качество, selected: false }
   - { name: pi-lens, why: "LSP/линтеры (может давать ложные ошибки)", group: Качество, selected: false }
@@ -57,12 +51,16 @@ recommended_extensions:
   - { name: cc-safety-net, why: "блокировка разрушительных команд и секретов", group: Безопасность, selected: false }
   - { name: "@gotgenes/pi-permission-system", why: "система прав и подтверждений", group: Безопасность, selected: false }
 
+  # Планирование
+  - { name: pi-goal-x, why: "постоянные цели агента", group: Планирование }
+  - { name: "@narumitw/pi-plan-mode", why: "read-only режим планирования", group: Планирование, selected: false }
+
   # UI
-  - { name: "@narumitw/pi-plan-mode", why: "read-only режим планирования", group: UI, selected: false }
   - { name: pi-powerline-footer, why: "powerline-статусбар", group: UI, selected: false }
   - { name: pi-autosuggestions, why: "ghost-подсказки в редакторе", group: UI, selected: false }
 
   # Поиск и интеграции
+  - { name: pi-web-access, why: "доступ в интернет (web_search, fetch_content)", group: Поиск }
   - { name: "@ff-labs/pi-fff", why: "быстрый нечёткий поиск", group: Поиск, selected: false }
   - { name: pi-web-search, why: "нативный поиск провайдера", group: Поиск, selected: false }
   - { name: pi-mcp-adapter, why: "подключение MCP-серверов", group: Поиск, selected: false }
@@ -74,6 +72,8 @@ recommended_extensions:
   - { name: "@raindrop-ai/pi-agent", why: "трейсинг в Raindrop", group: Наблюдаемость, selected: false }
 
   # Делегирование
+  - { name: pi-subagents, why: "делегирование и параллельные субагенты", group: Делегирование }
+  - { name: pi-background-tasks, why: "долгие команды в фоне", group: Делегирование }
   - { name: "@tintinweb/pi-subagents", why: "субагенты «как в Claude Code»", group: Делегирование, selected: false }
   - { name: pi-advisor-flow, why: "схема Исполнитель/Советник", group: Делегирование, selected: false }
   - { name: "@akagilnc/pi-workflow-roles", why: "роли под workflow", group: Делегирование, selected: false }
