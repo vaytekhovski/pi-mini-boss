@@ -39,6 +39,10 @@ recommended_extensions:
     why: "доступ в интернет (web_search, fetch_content)"
   - name: billion-context-pi
     why: "сжатие контекста, длинные сессии"
+  - name: pi-background-tasks
+    why: "долгие команды в фоне"
+  - name: pi-goal-x
+    why: "постоянные цели агента"
 
 # Порядок ведения задачи.
 workflow:
