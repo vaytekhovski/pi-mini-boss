@@ -1,5 +1,5 @@
 /**
- * pi-mini-boss `ask` tool — asks the user through a right-side overlay panel.
+ * pi-mini-boss `ask` tool — asks the user through a centered overlay panel.
  *
  * One call can carry several questions, shown as tabs (←/→). The panel toggles
  * with Ctrl+H: a global shortcut handles the "show again" case, because a hidden
@@ -256,7 +256,7 @@ export function registerAskTool(pi: ExtensionAPI): void {
     name: ASK_TOOL_NAME,
     label: "Ask",
     description:
-      "Ask the user one or more questions with options through a right-side overlay panel. Questions are shown as tabs (←/→). Supports single/multi choice and pre-selected options. Returns the chosen labels per question.",
+      "Ask the user one or more questions with options through a centered overlay panel. Questions are shown as tabs (←/→). Supports single/multi choice and pre-selected options. Returns the chosen labels per question.",
     promptSnippet: "Ask the user questions via a panel",
     promptGuidelines: [
       "Use `ask` for structured questions (role, choices, confirmations) — put related questions in one call; they become tabs.",
@@ -287,10 +287,9 @@ export function registerAskTool(pi: ExtensionAPI): void {
         {
           overlay: true,
           overlayOptions: {
-            anchor: "right-center",
-            minWidth: 34,
-            width: "42%",
-            margin: { right: 1 },
+            anchor: "center",
+            minWidth: 40,
+            width: "60%",
           },
           onHandle: (h: HideHandle) => {
             handle = h;
