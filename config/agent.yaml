@@ -66,6 +66,7 @@ recommended_extensions:
   - { name: "@ff-labs/pi-fff", why: "быстрый нечёткий поиск", group: Поиск, selected: false }
   - { name: pi-web-search, why: "нативный поиск провайдера", group: Поиск, selected: false }
   - { name: pi-mcp-adapter, why: "подключение MCP-серверов", group: Поиск, selected: false }
+  - { name: "@onkernel/browser-loop", why: "браузерные инструменты для агента", group: Поиск, selected: false }
 
   # Наблюдаемость
   - { name: "@langfuse/pi-observability-plugin", why: "трейсинг в Langfuse", group: Наблюдаемость, selected: false }
