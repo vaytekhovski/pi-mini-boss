@@ -158,20 +158,22 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
   }
 
   /** Build the (wrapped) body for a question, or the review screen. */
-  const buildBody = (qi: number, innerW: number): string[] => {
-    const body: string[] = [];
+  const buildBody = (qi: number, innerW: number): { top: string[]; middle: string[]; bottom: string[] } => {
+    const top: string[] = [];
+    const middle: string[] = [];
+    const bottom: string[] = [];
     if (questions.length > 1) {
       const labels = [...questions.map((tq, i) => tq.header || `Q${i + 1}`), "Итог"];
       const tabs = labels.map((label, i) =>
         i === qi ? theme.fg("accent", `▸ ${label}`) : theme.fg("dim", label),
       );
-      body.push(...wrapTextWithAnsi(tabs.join(theme.fg("dim", " · ")), innerW));
-      body.push("");
+      top.push(...wrapTextWithAnsi(tabs.join(theme.fg("dim", " · ")), innerW));
+      top.push("");
     }
 
     if (qi === REVIEW) {
-      body.push(...wrapTextWithAnsi(theme.fg("text", "Проверь выбор:"), innerW));
-      body.push("");
+      middle.push(...wrapTextWithAnsi(theme.fg("text", "Проверь выбор:"), innerW));
+      middle.push("");
       const half = Math.floor(innerW / 2);
       questions.forEach((q, i) => {
         const labels = [...selected[i]].sort((a, b) => a - b).map((index) => q.options[index].label);
@@ -182,17 +184,17 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
         const room = Math.max(0, innerW - half);
         const text = value.length > room ? value.slice(0, room) : value;
         const line = left + text;
-        body.push(line + " ".repeat(Math.max(0, innerW - visibleWidth(line))));
+        middle.push(line + " ".repeat(Math.max(0, innerW - visibleWidth(line))));
       });
-      body.push("");
-      body.push(...wrapTextWithAnsi(theme.fg("dim", "Enter — подтвердить"), innerW));
-      body.push(...wrapTextWithAnsi(theme.fg("dim", "←/→ — изменить"), innerW));
-      return body;
+      bottom.push("");
+      bottom.push(...wrapTextWithAnsi(theme.fg("dim", "Enter — подтвердить"), innerW));
+      bottom.push(...wrapTextWithAnsi(theme.fg("dim", "←/→ — изменить"), innerW));
+      return { top, middle, bottom };
     }
 
     const q = questions[qi];
-    body.push(...wrapTextWithAnsi(theme.fg("text", q.question), innerW));
-    body.push("");
+    middle.push(...wrapTextWithAnsi(theme.fg("text", q.question), innerW));
+    middle.push("");
     const optionLines: string[] = [];
     q.options.forEach((option, index) => {
       const isSelected = selected[qi].has(index);
@@ -207,18 +209,18 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     const indent = Math.max(0, Math.floor((innerW - widest) / 2));
     for (const line of optionLines) {
       const padded = " ".repeat(indent) + line;
-      body.push(padded + " ".repeat(Math.max(0, innerW - visibleWidth(padded))));
+      middle.push(padded + " ".repeat(Math.max(0, innerW - visibleWidth(padded))));
     }
-    body.push("");
-    body.push(...wrapTextWithAnsi(theme.fg("dim", "1-9/Enter — выбрать"), innerW));
-    body.push(...wrapTextWithAnsi(theme.fg("dim", "↑↓/←→ — вопросы"), innerW));
-    body.push(
+    bottom.push("");
+    bottom.push(...wrapTextWithAnsi(theme.fg("dim", "1-9/Enter — выбрать"), innerW));
+    bottom.push(...wrapTextWithAnsi(theme.fg("dim", "↑↓/←→ — вопросы"), innerW));
+    bottom.push(
       ...wrapTextWithAnsi(
         theme.fg("dim", `Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`),
         innerW,
       ),
     );
-    return body;
+    return { top, middle, bottom };
   };
 
   function render(width: number): string[] {
@@ -231,13 +233,13 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
 
     // Fixed height: measure every question and pad the shown one, so switching
     // tabs never resizes the window. Two spare rows keep some breathing room.
-    const bodies = [...Array(questions.length + 1).keys()].map((qi) => buildBody(qi, innerW));
-    const maxRows = Math.max(...bodies.map((b) => b.length)) + 2;
-    const shown = bodies[tab];
-    // Centre the content vertically inside the fixed-height box.
-    const padTotal = Math.max(0, maxRows - shown.length);
-    const padTop = Math.floor(padTotal / 2);
-    const body = [...new Array(padTop).fill(""), ...shown, ...new Array(padTotal - padTop).fill("")];
+    const built = [...Array(questions.length + 1).keys()].map((qi) => buildBody(qi, innerW));
+    const maxRows =
+      Math.max(...built.map((b) => b.top.length + b.middle.length + b.bottom.length)) + 2;
+    const { top, middle, bottom } = built[tab];
+    // Tabs stick to the top, hints to the bottom; the spare space sits between.
+    const padTotal = Math.max(0, maxRows - (top.length + middle.length + bottom.length));
+    const body = [...top, ...middle, ...new Array(padTotal).fill(""), ...bottom];
 
     const heading =
       tab === REVIEW
