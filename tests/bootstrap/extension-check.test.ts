@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { AgentConfig } from '../../src/bootstrap/config.js';
-import { checkExtensions } from '../../src/bootstrap/extension-check.js';
+import { checkExtensions, installSelectedExtensions } from '../../src/bootstrap/extension-check.js';
 
 const baseConfig: AgentConfig = {
   role: { name: 'a', purpose: 'b', language: 'ru' },
@@ -46,5 +46,52 @@ describe('bootstrap extension check', () => {
   it('treats an unreadable settings file as nothing installed', () => {
     const result = checkExtensions(baseConfig, path.join(os.tmpdir(), `pmb-none-${Date.now()}.json`));
     assert.deepEqual(result.missingRequired, ['memory', 'todo']);
+  });
+
+  it('declares selected extensions in settings and keeps existing packages', () => {
+    withSettings(['npm:pi-hermes-memory'], (settingsPath) => {
+      assert.deepEqual(installSelectedExtensions(baseConfig, settingsPath), ['npm:ponytail']);
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as { packages: string[] };
+      assert.deepEqual(settings.packages, ['npm:pi-hermes-memory', 'npm:ponytail']);
+      // Idempotent: a second session adds nothing.
+      assert.deepEqual(installSelectedExtensions(baseConfig, settingsPath), []);
+    });
+  });
+
+  it('leaves options marked as optional alone', () => {
+    const config: AgentConfig = {
+      ...baseConfig,
+      recommended_extensions: [
+        { name: 'ponytail', why: 'x' },
+        { name: 'pi-lens', why: 'y', selected: false },
+      ],
+    };
+    withSettings([], (settingsPath) => {
+      assert.deepEqual(installSelectedExtensions(config, settingsPath), ['npm:ponytail']);
+    });
+  });
+
+  it('creates the settings file when there is none', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pmb-fresh-'));
+    const settingsPath = path.join(dir, 'nested', 'settings.json');
+    try {
+      assert.deepEqual(installSelectedExtensions(baseConfig, settingsPath), ['npm:ponytail']);
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as { packages: string[] };
+      assert.deepEqual(settings.packages, ['npm:ponytail']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+
+  it('never rewrites a settings file it cannot parse', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pmb-broken-'));
+    const settingsPath = path.join(dir, 'settings.json');
+    try {
+      fs.writeFileSync(settingsPath, '{ not json');
+      assert.deepEqual(installSelectedExtensions(baseConfig, settingsPath), []);
+      assert.equal(fs.readFileSync(settingsPath, 'utf8'), '{ not json');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
   });
 });

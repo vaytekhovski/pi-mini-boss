@@ -12,7 +12,7 @@ import {
   needsOnboarding,
   type AgentConfig,
 } from "./config.js";
-import { checkExtensions } from "./extension-check.js";
+import { checkExtensions, installSelectedExtensions } from "./extension-check.js";
 import { installedCatalogNames } from "./questions.js";
 
 /** Render the role + core rules + workflow as a system-prompt section. */
@@ -185,6 +185,19 @@ export function registerBootstrap(pi: ExtensionAPI): void {
           : `pi-mini-boss: нет обязательных расширений: ${missingRequired.join(", ")}`,
         "warning",
       );
+    }
+    // Only once onboarding happened: before that the config is the package
+    // template and its defaults are not the user's choice.
+    if (!needsOnboarding()) {
+      const added = installSelectedExtensions(loadAgentConfig());
+      if (added.length > 0) {
+        ctx.ui.notify(
+          english
+            ? `pi-mini-boss: declared ${added.length} extension(s) in settings.json — restart Pi (or run \`pi update --extensions\`)`
+            : `pi-mini-boss: добавил расширений в settings.json: ${added.length} — перезапусти Pi (или \`pi update --extensions\`)`,
+          "info",
+        );
+      }
     }
   });
 
