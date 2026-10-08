@@ -4,18 +4,16 @@
  *   • injects role + base_behavior + workflow into every system prompt;
  *   • exposes /onboard to (re)configure.
  */
-import fs from "node:fs";
-import path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
   DEFAULT_CONFIG_PATH,
-  PACKAGE_ROOT,
   USER_CONFIG_PATH,
   loadAgentConfig,
   needsOnboarding,
   type AgentConfig,
 } from "./config.js";
-import { checkExtensions, listInstalledPackages } from "./extension-check.js";
+import { checkExtensions } from "./extension-check.js";
+import { installedCatalogNames } from "./questions.js";
 
 /** Render the role + core rules + workflow as a system-prompt section. */
 function buildSystemPromptBlock(config: AgentConfig): string {
@@ -39,111 +37,26 @@ function buildSystemPromptBlock(config: AgentConfig): string {
  * agent absolute paths, so it never has to explore the filesystem or look up a
  * skill (that exploration was the old noisy behaviour).
  */
-/** Skills implemented in a `skills/<kind>/` directory; stubs carry `disable-model-invocation: true`. */
-function listImplemented(kind: string): Array<{ slug: string; description: string }> {
-  const dir = path.join(PACKAGE_ROOT, "skills", kind);
-  if (!fs.existsSync(dir)) {
-    return [];
-  }
-  const items: Array<{ slug: string; description: string }> = [];
-  for (const slug of fs.readdirSync(dir)) {
-    const file = path.join(dir, slug, "SKILL.md");
-    if (!fs.existsSync(file)) {
-      continue;
-    }
-    const text = fs.readFileSync(file, "utf8");
-    if (/^disable-model-invocation:\s*true\s*$/m.test(text)) {
-      continue;
-    }
-    const description = /^description:\s*"?([^"\n]+?)"?\s*$/m.exec(text)?.[1]?.trim() ?? slug;
-    items.push({ slug, description });
-  }
-  return items.sort((a, b) => a.slug.localeCompare(b.slug));
-}
-
 function buildOnboardPrompt(): string {
-  const roles = listImplemented("roles");
-  const purposes = listImplemented("purposes");
-  // Always offer the package catalogue, not the user's last saved choice.
-  const extensions = loadAgentConfig(DEFAULT_CONFIG_PATH).recommended_extensions ?? [];
-  const roleOptions =
-    roles.length > 0 ? roles : [{ slug: "senior backend developer", description: "бэкенд, API, сервисы" }];
-  const purposeOptions =
-    purposes.length > 0 ? purposes : [{ slug: "веб-приложение / SaaS", description: "продукт для пользователей" }];
-  const extensionLines: string[] = [];
-  const installedPackages = listInstalledPackages();
-  const alreadyInstalled = (name: string): boolean =>
-    installedPackages.some((pkg) => pkg.toLowerCase().includes(name.toLowerCase()));
-  if (extensions.length > 0) {
-    // One question (tab) per `group`, in first-seen order.
-    const groups: string[] = [];
-    const byGroup = new Map<string, typeof extensions>();
-    for (const ext of extensions) {
-      const group = ext.group ?? "Дополнительно";
-      if (!byGroup.has(group)) {
-        byGroup.set(group, []);
-        groups.push(group);
-      }
-      byGroup.get(group)!.push(ext);
-    }
-    groups.forEach((group, gi) => {
-      const items = byGroup.get(group) ?? [];
-      extensionLines.push(`  {question:"${group}", header:"${group}", multiSelect:true, options:[`);
-      items.forEach((ext, index) => {
-        const selected = ext.selected === false ? "" : ", selected:true";
-        const installedFlag = alreadyInstalled(ext.name) ? ", installed:true" : "";
-        const tail = index === items.length - 1 ? " ]}" : ",";
-        extensionLines.push(`    {label:"${ext.name}", description:"${ext.why}"${selected}${installedFlag}}${tail}`);
-      });
-      extensionLines[extensionLines.length - 1] += gi === groups.length - 1 ? " ]" : ",";
-    });
-  } else {
-    extensionLines.push(
-      '  {question:"Дополнительно", header:"Дополнительно", multiSelect:true, options:[',
-      '    {label:"ponytail", description:"лаконичный режим", selected:true} ]} ]',
-    );
-  }
+  const installed = installedCatalogNames();
   return [
-    "Онбординг pi-mini-boss. Он идёт ТРЕМЯ отдельными окнами: окно закрывается — сразу открывается следующее.",
-    "ВАЖНО: не исследуй файловую систему, не запускай команды, не ищи и не загружай скиллы — никаких ls/pwd/grep/skill_manage.",
+    "Онбординг pi-mini-boss — ТРИ окна подряд. Вопросы строит сам модуль, ты только вызываешь `ask` с пресетом: ничего не сочиняй, не исследуй ФС, не ищи и не загружай скиллы.",
     "",
-    'Окно 1 — ЯЗЫК. Одним вызовом `ask` (locale="ru"), вопрос с флагом uiLanguage:true — панель переключит язык сама:',
-    'ask locale="ru" questions=[',
-    '  {question:{ru:"Язык общения?", en:"Language?"}, header:{ru:"Язык", en:"Language"}, uiLanguage:true, options:[',
-    '    {label:"ru", description:{ru:"русский", en:"Russian"}, selected:true},',
-    '    {label:"en", description:{ru:"английский", en:"English"} } ]} ]',
-    "Подтверди на вкладке «Итог» (Enter). Запомни выбранный язык как LANG.",
+    'Окно 1 — ЯЗЫК: `ask preset="language"` (locale="ru"). Подтверди на «Итоге». Запомни язык как LANG.',
+    'Окно 2 — РОЛЬ и НАЗНАЧЕНИЕ: `ask preset="role" locale=LANG`. Подтверди на «Итоге».',
+    'Окно 3 — РАСШИРЕНИЯ (вкладки по категориям): `ask preset="extensions" locale=LANG`. Подтверди на «Итоге».',
     "",
-    "Окно 2 — РОЛЬ и НАЗНАЧЕНИЕ. Второй вызов `ask` с locale=LANG:",
-    "ask locale=LANG questions=[",
-    '  {question:"Кто ты?", header:"Роль", options:[',
-    ...roleOptions.map(
-      (role, index) =>
-        `    {label:"${role.slug}", description:"${role.description}"${index === 0 ? ", selected:true" : ""}}${index === roleOptions.length - 1 ? " ]}," : ","}`,
-    ),
-    '  {question:"Над чем ты работаешь?", header:"Назначение", options:[',
-    ...purposeOptions.map(
-      (purpose, index) =>
-        `    {label:"${purpose.slug}", description:"${purpose.description}"${index === 0 ? ", selected:true" : ""}}${index === purposeOptions.length - 1 ? " ]} ]" : ","}`,
-    ),
-    "Подтверди на «Итоге».",
-    "",
-    "Окно 3 — РАСШИРЕНИЯ по вкладкам-категориям. Третий вызов `ask` с locale=LANG:",
-    "ask locale=LANG questions=[",
-    ...extensionLines,
-    "Подтверди на «Итоге».",
-    "",
-    `Уже установлены из каталога: ${extensions.filter((ext) => alreadyInstalled(ext.name)).map((ext) => ext.name).join(", ") || "нет"}.`,
-    "Окно 4 — СВЕРКА (только если есть расширения, которые УЖЕ установлены, но НЕ отмечены в окне 3):",
+    `Уже установлены из каталога: ${installed.join(", ") || "нет"}.`,
+    "Окно 4 — СВЕРКА (ТОЛЬКО если есть расширения, которые УЖЕ установлены, но НЕ отмечены в окне 3):",
     "ask locale=LANG questions=[",
     '  {question:"Эти расширения уже установлены, но не выбраны: <список>. Удалить их?", header:"Удалить", options:[',
     '    {label:"оставить", description:"ничего не удалять"},',
     '    {label:"удалить", description:"снять невыбранные установленные"} ]} ]',
-    "Если выбрано «удалить» — выполни `pi remove npm:<name>` для каждого такого расширения. Если таких нет — окно 4 не открывай.",
+    "Если выбрано «удалить» — выполни `pi remove npm:<name>` по каждому. Если таких нет — окно 4 не открывай.",
     "",
     "Если пользователь ОТМЕНИЛ любое окно (Esc) — НЕ задавай вопросы в чате. Напиши коротко: онбординг можно запустить позже командой /onboard. Больше ничего не делай.",
     "",
-    `Шаг 4. Прочитай шаблон ${DEFAULT_CONFIG_PATH} (это файл по абсолютному пути — не ищи его) и запиши ${USER_CONFIG_PATH}:`,
+    `Шаг 4. Прочитай шаблон ${DEFAULT_CONFIG_PATH} (файл по абсолютному пути — не ищи) и запиши ${USER_CONFIG_PATH}:`,
     "   - role.name / role.purpose / role.language ← из окон 2 и 1 (language = LANG);",
     "   - base_behavior / workflow / thinking / required_extensions ← как в шаблоне;",
     "   - recommended_extensions ← отмеченные в окне 3 (label → name, description → why);",

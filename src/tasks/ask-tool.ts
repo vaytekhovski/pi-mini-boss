@@ -25,17 +25,22 @@ const OptionSchema = Type.Object({
 
 const ASK_PARAMETERS = Type.Object({
   locale: Type.Optional(Type.String({ description: "UI language of the panel: ru | en" })),
-  questions: Type.Array(
-    Type.Object({
-      question: LocalizedSchema,
-      header: Type.Optional(LocalizedSchema),
-      multiSelect: Type.Optional(Type.Boolean({ description: "Allow several choices" })),
-      uiLanguage: Type.Optional(
-        Type.Boolean({ description: "This question switches the panel language live" }),
-      ),
-      options: Type.Array(OptionSchema, { minItems: 2, maxItems: 12 }),
-    }),
-    { minItems: 1, maxItems: 8, description: "One or more questions" },
+  preset: Type.Optional(
+    Type.String({ description: "Built-in question preset: language | role | extensions" }),
+  ),
+  questions: Type.Optional(
+    Type.Array(
+      Type.Object({
+        question: LocalizedSchema,
+        header: Type.Optional(LocalizedSchema),
+        multiSelect: Type.Optional(Type.Boolean({ description: "Allow several choices" })),
+        uiLanguage: Type.Optional(
+          Type.Boolean({ description: "This question switches the panel language live" }),
+        ),
+        options: Type.Array(OptionSchema, { minItems: 2, maxItems: 12 }),
+      }),
+      { minItems: 1, maxItems: 8, description: "One or more questions" },
+    ),
   ),
 });
 
@@ -55,7 +60,8 @@ interface QuestionSpec {
 }
 interface AskParams {
   locale?: string;
-  questions: QuestionSpec[];
+  preset?: string;
+  questions?: QuestionSpec[];
 }
 
 /** UI strings per locale; the panel switches live on the uiLanguage question. */
@@ -413,7 +419,22 @@ export function registerAskTool(pi: ExtensionAPI): void {
         return text("No interactive UI available — ask the user in plain text.");
       }
       const input = params as AskParams;
-      if (input.questions.length === 0) {
+      // A preset builds the questions inside the extension, so the model only
+      // emits a short call instead of the whole option list.
+      let questions = input.questions ?? [];
+      if (questions.length === 0 && input.preset) {
+        const { languageQuestion, roleQuestions, extensionQuestions } = await import(
+          "../bootstrap/questions.js"
+        );
+        if (input.preset === "language") {
+          questions = [languageQuestion() as never];
+        } else if (input.preset === "role") {
+          questions = roleQuestions() as never;
+        } else if (input.preset === "extensions") {
+          questions = extensionQuestions() as never;
+        }
+      }
+      if (questions.length === 0) {
         return text("No questions provided.");
       }
 
@@ -424,7 +445,7 @@ export function registerAskTool(pi: ExtensionAPI): void {
       };
       const result = await ctx.ui.custom<AskResult | null>(
         (tui, theme, _kb, done) => {
-          const component = createQuestionnaire(tui, theme, done, input.questions, input.locale);
+          const component = createQuestionnaire(tui, theme, done, questions, input.locale);
           activeOverlay = {
             setHidden: (hidden: boolean) => handle?.setHidden(hidden),
             refresh: () => {
