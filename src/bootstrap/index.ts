@@ -64,7 +64,8 @@ function listImplemented(kind: string): Array<{ slug: string; description: strin
 function buildOnboardPrompt(): string {
   const roles = listImplemented("roles");
   const purposes = listImplemented("purposes");
-  const extensions = loadAgentConfig().recommended_extensions ?? [];
+  // Always offer the package catalogue, not the user's last saved choice.
+  const extensions = loadAgentConfig(DEFAULT_CONFIG_PATH).recommended_extensions ?? [];
   const roleOptions =
     roles.length > 0 ? roles : [{ slug: "senior backend developer", description: "бэкенд, API, сервисы" }];
   const purposeOptions =
