@@ -103,7 +103,7 @@ export default function (pi: ExtensionAPI) {
   let taskStore: TaskStore | undefined;
   const getTaskStore = (): TaskStore => (taskStore ??= new TaskStore());
   registerTaskTool(pi, getTaskStore);
-  registerAskTool(pi, getTaskStore);
+  registerAskTool(pi);
   registerDashboard(pi, getTaskStore);
 
   const config = loadConfig();

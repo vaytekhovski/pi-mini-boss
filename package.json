@@ -7,16 +7,12 @@
   "files": [
     "src",
     "scripts",
-    "bin",
     "config",
     "skills",
     "README.md",
     "LICENSE",
     "docs"
   ],
-  "bin": {
-    "pi-mini-boss-board": "./bin/pi-mini-boss-board.mjs"
-  },
   "pi": {
     "extensions": [
       "./src/index.ts"
