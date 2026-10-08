@@ -20,11 +20,15 @@ const OptionSchema = Type.Object({
 });
 
 const ASK_PARAMETERS = Type.Object({
+  locale: Type.Optional(Type.String({ description: "UI language of the panel: ru | en" })),
   questions: Type.Array(
     Type.Object({
       question: Type.String({ description: "The question to ask" }),
       header: Type.Optional(Type.String({ description: "Short tab label" })),
       multiSelect: Type.Optional(Type.Boolean({ description: "Allow several choices" })),
+      uiLanguage: Type.Optional(
+        Type.Boolean({ description: "This question switches the panel language live" }),
+      ),
       options: Type.Array(OptionSchema, { minItems: 2, maxItems: 12 }),
     }),
     { minItems: 1, maxItems: 8, description: "One or more questions" },
@@ -40,11 +44,41 @@ interface QuestionSpec {
   question: string;
   header?: string;
   multiSelect?: boolean;
+  uiLanguage?: boolean;
   options: OptionSpec[];
 }
 interface AskParams {
+  locale?: string;
   questions: QuestionSpec[];
 }
+
+/** UI strings per locale; the panel switches live on the uiLanguage question. */
+const STRINGS: Record<string, Record<string, string>> = {
+  ru: {
+    summary: "Итог",
+    review: "Проверь выбор:",
+    none: "(не выбрано)",
+    question: "Вопрос",
+    confirm: "Enter — подтвердить",
+    change: "←/→ — изменить",
+    choose: "1-9/Enter — выбрать",
+    nav: "←→/↑↓ — навигация",
+    hide: "скрыть",
+    show: "показать",
+  },
+  en: {
+    summary: "Summary",
+    review: "Review your choice:",
+    none: "(none)",
+    question: "Question",
+    confirm: "Enter — confirm",
+    change: "←/→ — change",
+    choose: "1-9/Enter — choose",
+    nav: "←→/↑↓ — navigate",
+    hide: "hide",
+    show: "show",
+  },
+};
 interface AskResult {
   answers: Array<{ header: string; labels: string[] }>;
   cancelled: boolean;
@@ -71,7 +105,23 @@ function toggleOverlayVisibility(): void {
   }
 }
 
-function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => void, questions: QuestionSpec[]) {
+function createQuestionnaire(
+  tui: any,
+  theme: any,
+  done: (result: AskResult) => void,
+  questions: QuestionSpec[],
+  baseLocale = "ru",
+) {
+  const languageIndex = questions.findIndex((q) => q.uiLanguage === true);
+  const locale = (): string => {
+    if (languageIndex >= 0) {
+      const label = (questions[languageIndex].options[cursor[languageIndex]]?.label ?? "").toLowerCase();
+      if (label.startsWith("en")) return "en";
+      if (label.startsWith("ru")) return "ru";
+    }
+    return baseLocale === "en" ? "en" : "ru";
+  };
+  const t = (key: string): string => STRINGS[locale()]?.[key] ?? STRINGS.ru[key] ?? key;
   const selected = questions.map(
     (q) => new Set<number>(q.options.map((o, i) => (o.selected ? i : -1)).filter((i) => i >= 0)),
   );
@@ -188,7 +238,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     const middle: string[] = [];
     const bottom: string[] = [];
     if (questions.length > 1) {
-      const labels = [...questions.map((tq, i) => tq.header || `Q${i + 1}`), "Итог"];
+      const labels = [...questions.map((tq, i) => tq.header || `${t("question")} ${i + 1}`), t("summary")];
       const tabs = labels.map((label, i) =>
         i === qi ? theme.fg("accent", `▸ ${label}`) : theme.fg("dim", label),
       );
@@ -197,14 +247,14 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     }
 
     if (qi === REVIEW) {
-      middle.push(...wrapTextWithAnsi(theme.fg("text", "Проверь выбор:"), innerW));
+      middle.push(...wrapTextWithAnsi(theme.fg("text", t("review")), innerW));
       middle.push("");
       const block: string[] = [];
       questions.forEach((q, i) => {
         const labels = [...selected[i]].sort((a, b) => a - b).map((index) => q.options[index].label);
-        const value = labels.length > 0 ? labels.join(", ") : "(не выбрано)";
+        const value = labels.length > 0 ? labels.join(", ") : t("none");
         block.push(
-          ...wrapTextWithAnsi(`${theme.fg("muted", `${q.header || `Вопрос ${i + 1}`}:`)} ${value}`, innerW),
+          ...wrapTextWithAnsi(`${theme.fg("muted", `${q.header || `${t("question")} ${i + 1}`}:`)} ${value}`, innerW),
         );
       });
       // Same treatment as the options: one left-aligned block, centred as a whole.
@@ -270,8 +320,8 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     // Controls live in the bottom border; the brand sits in the top border.
     const controls =
       tab === REVIEW
-        ? "Enter — подтвердить · ←/→ — изменить"
-        : `1-9/Enter — выбрать · ←→/↑↓ — навигация · Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`;
+        ? `${t("confirm")} · ${t("change")}`
+        : `${t("choose")} · ${t("nav")} · Ctrl+H — ${overlayHidden ? t("show") : t("hide")}`;
     // Border with the label centred between the corners.
     const border = (left: string, right: string, label: string): string => {
       const inner = Math.max(1, w - 2);
@@ -368,7 +418,7 @@ export function registerAskTool(pi: ExtensionAPI): void {
       };
       const result = await ctx.ui.custom<AskResult | null>(
         (tui, theme, _kb, done) => {
-          const component = createQuestionnaire(tui, theme, done, input.questions);
+          const component = createQuestionnaire(tui, theme, done, input.questions, input.locale);
           activeOverlay = {
             setHidden: (hidden: boolean) => handle?.setHidden(hidden),
             refresh: () => {
