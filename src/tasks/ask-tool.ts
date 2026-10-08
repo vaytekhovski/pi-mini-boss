@@ -129,7 +129,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       return;
     }
     if (matchesKey(data, Key.down) || matchesKey(data, Key.right)) {
-      tab = Math.min(questions.length - 1, tab + 1);
+      tab = Math.min(REVIEW, tab + 1);
       refresh();
       return;
     }
@@ -220,7 +220,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
 
     // Fixed height: measure every question and pad the shown one, so switching
     // tabs never resizes the window. Two spare rows keep some breathing room.
-    const bodies = questions.map((_, qi) => buildBody(qi, innerW));
+    const bodies = [...Array(questions.length + 1).keys()].map((qi) => buildBody(qi, innerW));
     const maxRows = Math.max(...bodies.map((b) => b.length)) + 2;
     const body = bodies[tab];
     while (body.length < maxRows) {
