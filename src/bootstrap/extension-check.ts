@@ -74,18 +74,30 @@ export function checkExtensions(
   };
 }
 
+/** Write a parsed settings file back. */
+function writeSettings(settingsPath: string, settings: Record<string, unknown>): void {
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
+}
+
+/** True when `pkg` is exactly the declaration this catalogue name produces. */
+function isDeclarationOf(pkg: string, name: string): boolean {
+  const base = `npm:${name}`.toLowerCase();
+  const lower = pkg.toLowerCase();
+  return lower === base || lower.startsWith(`${base}@`);
+}
+
 /**
- * Declare every selected extension of the config in the user's settings file —
- * the same state `pi install npm:<name>` produces, without spawning a process.
- * Pi fetches declared packages when it starts, so the caller has to ask the user
- * for a restart. Returns the sources that were added.
+ * Declare extensions as packages in the user's settings file — the same state
+ * `pi install npm:<name>` produces, without spawning a process. Pi fetches
+ * declared packages when it starts, so the caller has to ask for a restart.
+ * Returns the sources that were added.
  */
-export function installSelectedExtensions(
-  config: AgentConfig,
+export function installExtensionNames(
+  names: string[],
   settingsPath: string = SETTINGS_PATH,
 ): string[] {
-  const selected = (config.recommended_extensions ?? []).filter((ext) => ext.selected !== false);
-  if (selected.length === 0) {
+  if (names.length === 0) {
     return [];
   }
   const settings = readSettings(settingsPath);
@@ -94,14 +106,55 @@ export function installSelectedExtensions(
     return [];
   }
   const installed = packagesOf(settings);
-  const added = selected
-    .filter((ext) => !isInstalled(installed, ext.name))
-    .map((ext) => `npm:${ext.name}`);
+  const added = names.filter((name) => !isInstalled(installed, name)).map((name) => `npm:${name}`);
   if (added.length === 0) {
     return [];
   }
   settings.packages = [...installed, ...added];
-  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
-  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
+  writeSettings(settingsPath, settings);
   return added;
+}
+
+/**
+ * Drop the declarations of the given extension names, which switches them off:
+ * Pi stops loading them, the npm copies stay on disk. Only exact `npm:<name>`
+ * declarations are touched, so a hand-written source is never destroyed.
+ */
+export function deactivateExtensionNames(
+  names: string[],
+  settingsPath: string = SETTINGS_PATH,
+): string[] {
+  if (names.length === 0) {
+    return [];
+  }
+  const settings = readSettings(settingsPath);
+  if (!settings) {
+    return [];
+  }
+  const installed = packagesOf(settings);
+  const removed: string[] = [];
+  const kept = installed.filter((pkg) => {
+    if (!names.some((name) => isDeclarationOf(pkg, name))) {
+      return true;
+    }
+    removed.push(pkg);
+    return false;
+  });
+  if (removed.length === 0) {
+    return [];
+  }
+  settings.packages = kept;
+  writeSettings(settingsPath, settings);
+  return removed;
+}
+
+/** Declare every selected extension of the config in the user's settings file. */
+export function installSelectedExtensions(
+  config: AgentConfig,
+  settingsPath: string = SETTINGS_PATH,
+): string[] {
+  return installExtensionNames(
+    (config.recommended_extensions ?? []).filter((ext) => ext.selected !== false).map((ext) => ext.name),
+    settingsPath,
+  );
 }

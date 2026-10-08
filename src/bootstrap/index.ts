@@ -13,7 +13,9 @@ import {
   type AgentConfig,
 } from "./config.js";
 import { checkExtensions, installSelectedExtensions } from "./extension-check.js";
-import { installedCatalogNames } from "./questions.js";
+import { applyExtensionSelection } from "./extension-selection.js";
+import { extensionQuestions, installedCatalogNames } from "./questions.js";
+import { runQuestionnaire } from "../tasks/ask-tool.js";
 
 /** Render the role + core rules + workflow as a system-prompt section. */
 function buildSystemPromptBlock(config: AgentConfig): string {
@@ -79,7 +81,7 @@ const TOUR = {
       "- **Панель вопросов** — инструмент `ask`: оверлей с вкладками, мультивыбором и живым переключением языка (это то, что откроется сейчас).",
       "- **Роли и назначения** — профиль агента: поведение и язык, при желании — модель, уровень thinking и набор активных инструментов.",
       "- **Процесс работы** — скилл `workflow`: план → работа → проверка → закрытие; статус задачи обновляется в том же шаге.",
-      "- **Команды** — `/onboard` (эта настройка), `/clear` (очистить окно).",
+      "- **Команды** — `/onboard` (настройка), `/extensions` (добавить или отключить расширения), `/clear` (очистить окно).",
       "",
       "_Дальше — три окна настройки: язык → роль → расширения._",
     ].join("\n"),
@@ -92,7 +94,7 @@ const TOUR = {
       "- **Question panel** — the `ask` tool: an overlay with tabs, multi-select and live language switching (this is what opens next).",
       "- **Roles and purposes** — an agent profile: behaviour and language, optionally the model, thinking level and active tool set.",
       "- **Working process** — the `workflow` skill: plan → do → verify → close; task status updates in the same step.",
-      "- **Commands** — `/onboard` (this setup), `/clear` (clear the window).",
+      "- **Commands** — `/onboard` (this setup), `/extensions` (add or switch off extensions), `/clear` (clear the window).",
       "",
       "_Next: three windows of setup — language → role → extensions._",
     ].join("\n"),
@@ -229,6 +231,32 @@ export function registerBootstrap(pi: ExtensionAPI): void {
       await pi.sendMessage(
         { customType: "pi-mini-boss:onboard", content: buildOnboardPrompt(), display: false },
         { triggerTurn: true },
+      );
+    },
+  });
+
+  pi.registerCommand("extensions", {
+    description: "Выбрать расширения: поставить новые, отключить снятые",
+    handler: async (_args, ctx) => {
+      if (!ctx.hasUI) {
+        return;
+      }
+      await ctx.waitForIdle();
+      const english = configLanguage() === "en";
+      // The panel is opened by the extension itself: the answer is applied here,
+      // so no model turn can get it wrong.
+      const result = await runQuestionnaire(ctx.ui, extensionQuestions(), configLanguage());
+      if (!result || result.cancelled) {
+        return;
+      }
+      const { selected, added, removed } = applyExtensionSelection(
+        result.answers.flatMap((answer) => answer.labels),
+      );
+      ctx.ui.notify(
+        english
+          ? `pi-mini-boss: ${selected.length} selected, ${added.length} added, ${removed.length} switched off — restart Pi (or run \`pi update --extensions\`)`
+          : `pi-mini-boss: выбрано ${selected.length} · добавил ${added.length} · снял ${removed.length} — перезапусти Pi (или \`pi update --extensions\`)`,
+        "info",
       );
     },
   });

@@ -4,7 +4,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { AgentConfig } from '../../src/bootstrap/config.js';
-import { checkExtensions, installSelectedExtensions } from '../../src/bootstrap/extension-check.js';
+import {
+  checkExtensions,
+  deactivateExtensionNames,
+  installExtensionNames,
+  installSelectedExtensions,
+} from '../../src/bootstrap/extension-check.js';
 
 const baseConfig: AgentConfig = {
   role: { name: 'a', purpose: 'b', language: 'ru' },
@@ -93,5 +98,27 @@ describe('bootstrap extension check', () => {
     } finally {
       fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
     }
+  });
+
+  it('declares a name list and skips the ones already there', () => {
+    withSettings(['npm:ponytail'], (settingsPath) => {
+      assert.deepEqual(installExtensionNames(['ponytail', 'pi-lens'], settingsPath), ['npm:pi-lens']);
+    });
+  });
+
+  it('switches an extension off by dropping its declaration', () => {
+    withSettings(['npm:pi-hermes-memory', 'npm:ponytail', 'npm:@scope/other'], (settingsPath) => {
+      assert.deepEqual(deactivateExtensionNames(['ponytail'], settingsPath), ['npm:ponytail']);
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as { packages: string[] };
+      assert.deepEqual(settings.packages, ['npm:pi-hermes-memory', 'npm:@scope/other']);
+    });
+  });
+
+  it('drops a pinned declaration but leaves lookalikes alone', () => {
+    withSettings(['npm:pi-lens@1.2.3', 'npm:my-pi-lens-fork'], (settingsPath) => {
+      assert.deepEqual(deactivateExtensionNames(['pi-lens'], settingsPath), ['npm:pi-lens@1.2.3']);
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as { packages: string[] };
+      assert.deepEqual(settings.packages, ['npm:my-pi-lens-fork']);
+    });
   });
 });

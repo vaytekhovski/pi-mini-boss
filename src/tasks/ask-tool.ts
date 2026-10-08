@@ -20,6 +20,7 @@ const OptionSchema = Type.Object({
   label: LocalizedSchema,
   description: Type.Optional(LocalizedSchema),
   selected: Type.Optional(Type.Boolean({ description: "Pre-select this option" })),
+  recommended: Type.Optional(Type.Boolean({ description: "Mark as recommended (star)" })),
   installed: Type.Optional(Type.Boolean({ description: "Already installed" })),
 });
 
@@ -46,13 +47,14 @@ const ASK_PARAMETERS = Type.Object({
 });
 
 type Localized = string | Record<string, string>;
-interface OptionSpec {
+export interface OptionSpec {
   label: Localized;
   description?: Localized;
   selected?: boolean;
+  recommended?: boolean;
   installed?: boolean;
 }
-interface QuestionSpec {
+export interface QuestionSpec {
   question: Localized;
   header?: Localized;
   note?: Localized;
@@ -95,7 +97,7 @@ const STRINGS: Record<string, Record<string, string>> = {
     show: "show",
   },
 };
-interface AskResult {
+export interface AskResult {
   answers: Array<{ header: string; labels: string[] }>;
   cancelled: boolean;
 }
@@ -147,8 +149,13 @@ function createQuestionnaire(
   const selected = questions.map(
     (q) => new Set<number>(q.options.map((o, i) => (o.selected ? i : -1)).filter((i) => i >= 0)),
   );
-  // Remember which options were marked recommended, for the ★ marker.
-  const recommended = selected.map((set) => new Set(set));
+  // ★ marks the recommended options. A question may say so explicitly; ones
+  // without that flag fall back to whatever was pre-selected.
+  const recommended = questions.map((q, qi) =>
+    q.options.some((o) => o.recommended !== undefined)
+      ? new Set(q.options.map((o, i) => (o.recommended ? i : -1)).filter((i) => i >= 0))
+      : new Set(selected[qi]),
+  );
   const REVIEW = questions.length;
   // The cursor starts on the pre-selected option, so a single-select question
   // never opens with the highlight disagreeing with the answer.
@@ -408,6 +415,51 @@ function text(value: string) {
 /** Renders nothing: the question lives in the overlay, not the transcript. */
 const hiddenRenderer = { render: (): string[] => [], invalidate: (): void => {} };
 
+/**
+ * Show the same panel the `ask` tool renders and resolve with the answers. Lets
+ * a command ask without a model round-trip. `onHiding` fires when the user hides
+ * the panel, so the caller can explain how to bring it back.
+ */
+export async function runQuestionnaire(
+  ui: ExtensionContext["ui"],
+  questions: QuestionSpec[],
+  locale?: string,
+  onHiding?: () => void,
+): Promise<AskResult | null> {
+  let handle: HideHandle | undefined;
+  overlayHidden = false;
+  onHidden = onHiding;
+  const result = await ui.custom<AskResult | null>(
+    (tui, theme, _kb, done) => {
+      const component = createQuestionnaire(tui, theme, done, questions, locale);
+      activeOverlay = {
+        setHidden: (hidden: boolean) => handle?.setHidden(hidden),
+        refresh: () => {
+          component.invalidate();
+          tui.requestRender();
+        },
+      };
+      return component;
+    },
+    {
+      overlay: true,
+      overlayOptions: {
+        anchor: "center",
+        minWidth: 40,
+        width: 120,
+        margin: { top: 1, bottom: 1 },
+      },
+      onHandle: (h: HideHandle) => {
+        handle = h;
+      },
+    },
+  );
+  activeOverlay = undefined;
+  overlayHidden = false;
+  onHidden = undefined;
+  return result;
+}
+
 /** Register the `ask` tool. */
 export function registerAskTool(pi: ExtensionAPI): void {
   pi.registerShortcut(HIDE_KEY, {
@@ -456,39 +508,9 @@ export function registerAskTool(pi: ExtensionAPI): void {
         return text("No questions provided.");
       }
 
-      let handle: HideHandle | undefined;
-      overlayHidden = false;
-      onHidden = () => {
+      const result = await runQuestionnaire(ctx.ui, questions, input.locale, () => {
         ctx.ui.notify("Панель вопросов скрыта. Нажми Ctrl+H, чтобы вернуть её.", "info");
-      };
-      const result = await ctx.ui.custom<AskResult | null>(
-        (tui, theme, _kb, done) => {
-          const component = createQuestionnaire(tui, theme, done, questions, input.locale);
-          activeOverlay = {
-            setHidden: (hidden: boolean) => handle?.setHidden(hidden),
-            refresh: () => {
-              component.invalidate();
-              tui.requestRender();
-            },
-          };
-          return component;
-        },
-        {
-          overlay: true,
-          overlayOptions: {
-            anchor: "center",
-            minWidth: 40,
-            width: 120,
-            margin: { top: 1, bottom: 1 },
-          },
-          onHandle: (h: HideHandle) => {
-            handle = h;
-          },
-        },
-      );
-      activeOverlay = undefined;
-      overlayHidden = false;
-      onHidden = undefined;
+      });
 
       if (!result || result.cancelled) {
         return text(

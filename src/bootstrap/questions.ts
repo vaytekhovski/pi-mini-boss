@@ -6,13 +6,14 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { DEFAULT_CONFIG_PATH, PACKAGE_ROOT, loadAgentConfig } from "./config.js";
+import { DEFAULT_CONFIG_PATH, PACKAGE_ROOT, loadAgentConfig, needsOnboarding } from "./config.js";
 import { listInstalledPackages } from "./extension-check.js";
 
 export interface AskOption {
   label: string | Record<string, string>;
   description?: string | Record<string, string>;
   selected?: boolean;
+  recommended?: boolean;
   installed?: boolean;
 }
 
@@ -107,10 +108,22 @@ export function roleQuestions(): AskQuestion[] {
 export function extensionQuestions(): AskQuestion[] {
   const extensions = loadAgentConfig(DEFAULT_CONFIG_PATH).recommended_extensions ?? [];
   const installed = listInstalledPackages();
-  // Explain what this window is and what the two glyphs mean, on every tab.
+  // ★ is the shipped recommendation, the tick is the user's own choice. Before
+  // onboarding the two are the same set.
+  const recommendedNames = new Set(
+    extensions.filter((ext) => ext.selected !== false).map((ext) => ext.name),
+  );
+  const chosen = needsOnboarding()
+    ? recommendedNames
+    : new Set(
+        (loadAgentConfig().recommended_extensions ?? [])
+          .filter((ext) => ext.selected !== false)
+          .map((ext) => ext.name),
+      );
+  // Explain what this window is and what the glyphs mean, on every tab.
   const note = {
-    ru: "Выбери, что установить (остальное не ставится). ★ — рекомендую, ✓ — уже установлено",
-    en: "Pick what to install (the rest stays out). ★ — recommended, ✓ — already installed",
+    ru: "Выбери, что должно быть установлено (снятое отключается). ★ — рекомендую, ✓ — уже установлено",
+    en: "Pick what should be installed (unchecked ones get switched off). ★ — recommended, ✓ — already installed",
   };
   const isInstalled = (name: string): boolean =>
     installed.some((pkg) => pkg.toLowerCase().includes(name.toLowerCase()));
@@ -122,7 +135,7 @@ export function extensionQuestions(): AskQuestion[] {
         header: "Дополнительно",
         note,
         multiSelect: true,
-        options: [{ label: "ponytail", description: "лаконичный режим", selected: true }],
+        options: [{ label: "ponytail", description: "лаконичный режим", selected: true, recommended: true }],
       },
     ];
   }
@@ -146,10 +159,16 @@ export function extensionQuestions(): AskQuestion[] {
     options: (byGroup.get(group) ?? []).map((ext) => ({
       label: ext.name,
       description: ext.why,
-      ...(ext.selected === false ? {} : { selected: true }),
+      ...(chosen.has(ext.name) ? { selected: true } : {}),
+      ...(recommendedNames.has(ext.name) ? { recommended: true } : {}),
       ...(isInstalled(ext.name) ? { installed: true } : {}),
     })),
   }));
+}
+
+/** Names of every extension in the shipped catalogue. */
+export function catalogNames(): string[] {
+  return (loadAgentConfig(DEFAULT_CONFIG_PATH).recommended_extensions ?? []).map((ext) => ext.name);
 }
 
 /** Catalogue extension names that are already installed (for the reconcile window). */
