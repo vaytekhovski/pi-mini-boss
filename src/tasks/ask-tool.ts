@@ -186,13 +186,15 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
         const line = left + text;
         middle.push(line + " ".repeat(Math.max(0, innerW - visibleWidth(line))));
       });
-      bottom.push("");
-      bottom.push(...wrapTextWithAnsi(theme.fg("dim", "Enter — подтвердить"), innerW));
-      bottom.push(...wrapTextWithAnsi(theme.fg("dim", "←/→ — изменить"), innerW));
       return { top, middle, bottom };
     }
 
     const q = questions[qi];
+    const heading = `${q.header || `Вопрос ${qi + 1}`}${
+      questions.length > 1 ? ` · ${qi + 1}/${questions.length}` : ""
+    }`;
+    middle.push(...wrapTextWithAnsi(theme.fg("accent", heading), innerW));
+    middle.push("");
     middle.push(...wrapTextWithAnsi(theme.fg("text", q.question), innerW));
     middle.push("");
     const optionLines: string[] = [];
@@ -211,15 +213,6 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       const padded = " ".repeat(indent) + line;
       middle.push(padded + " ".repeat(Math.max(0, innerW - visibleWidth(padded))));
     }
-    bottom.push("");
-    bottom.push(...wrapTextWithAnsi(theme.fg("dim", "1-9/Enter — выбрать"), innerW));
-    bottom.push(...wrapTextWithAnsi(theme.fg("dim", "↑↓/←→ — вопросы"), innerW));
-    bottom.push(
-      ...wrapTextWithAnsi(
-        theme.fg("dim", `Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`),
-        innerW,
-      ),
-    );
     return { top, middle, bottom };
   };
 
@@ -250,12 +243,11 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       ...bottom,
     ];
 
-    const heading =
+    // Controls live in the bottom border; the brand sits in the top border.
+    const controls =
       tab === REVIEW
-        ? "Подтверждение"
-        : `${questions[tab].header || `Вопрос ${tab + 1}`}${
-            questions.length > 1 ? ` · ${tab + 1}/${questions.length}` : ""
-          }`;
+        ? "Enter — подтвердить · ←/→ — изменить"
+        : `1-9/Enter — выбрать · ↑↓/←→ — вопросы · Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`;
     // Border with the label centred between the corners.
     const border = (left: string, right: string, label: string): string => {
       const inner = Math.max(1, w - 2);
@@ -266,15 +258,13 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
         accent(left) + accent("─".repeat(before)) + label + accent("─".repeat(after)) + accent(right)
       );
     };
-    // The heading is centred on the full inner width; the Esc button overlays the
-    // rightmost dashes so it does not shift the centring.
+    // Esc is a close button overlaid on the right dashes, so the brand stays centred.
     const close = ` ${theme.fg("muted", "Esc")} `;
     const closeW = visibleWidth(close);
-    const topLabel = accent(` ${heading} `);
-    const inner = Math.max(1, w - 2);
-    const pad = Math.max(0, inner - visibleWidth(topLabel));
-    const topBefore = Math.floor(pad / 2);
-    const topAfter = pad - topBefore;
+    const topLabel = accent(" pi-mini-boss ");
+    const topPad = Math.max(0, w - 2 - visibleWidth(topLabel));
+    const topBefore = Math.floor(topPad / 2);
+    const topAfter = topPad - topBefore;
     const lines: string[] = [
       accent("╭") +
         accent("─".repeat(topBefore)) +
@@ -289,7 +279,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       const after = pad - before;
       lines.push(`${accent("│")} ${" ".repeat(before)}${line}${" ".repeat(after)} ${accent("│")}`);
     }
-    lines.push(border("╰", "╯", theme.fg("muted", " pi-mini-boss ")));
+    lines.push(border("╰", "╯", theme.fg("muted", ` ${controls} `)));
 
     cached = lines;
     return lines;
