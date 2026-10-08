@@ -1,17 +1,17 @@
 /**
  * pi-mini-boss `ask` tool — asks the user through a right-side overlay panel.
  *
- * One call can carry several questions, shown as tabs (←/→). The panel can be
- * hidden with Ctrl+H (and shown again) so the transcript can be scrolled while
- * it stays open.
+ * One call can carry several questions, shown as tabs (←/→). The panel toggles
+ * with Ctrl+H: a global shortcut handles the "show again" case, because a hidden
+ * overlay no longer receives key input.
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 const ASK_TOOL_NAME = "ask";
-/** Hide/show the panel so the transcript can be scrolled. */
-const HIDE_KEY = "ctrl+h";
+/** Toggle the panel so the transcript can be seen/scrolled. */
+const HIDE_KEY = Key.ctrl("h");
 
 const OptionSchema = Type.Object({
   label: Type.String({ description: "Short option label" }),
@@ -53,19 +53,25 @@ interface AskResult {
 /** The narrow surface of the overlay handle we need. */
 type HideHandle = { setHidden(hidden: boolean): void };
 
-function createQuestionnaire(
-  tui: any,
-  theme: any,
-  done: (result: AskResult) => void,
-  getHandle: () => HideHandle | undefined,
-  questions: QuestionSpec[],
-) {
+// ── Overlay visibility (module scope so the global shortcut can reach it) ──
+let activeOverlay: { setHidden(hidden: boolean): void; refresh(): void } | undefined;
+let overlayHidden = false;
+
+function toggleOverlayVisibility(): void {
+  if (!activeOverlay) {
+    return;
+  }
+  overlayHidden = !overlayHidden;
+  activeOverlay.setHidden(overlayHidden);
+  activeOverlay.refresh();
+}
+
+function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => void, questions: QuestionSpec[]) {
   const selected = questions.map(
     (q) => new Set<number>(q.options.map((o, i) => (o.selected ? i : -1)).filter((i) => i >= 0)),
   );
   const cursor = questions.map(() => 0);
   let tab = 0;
-  let hidden = false;
   let cached: string[] | undefined;
 
   const refresh = () => {
@@ -94,12 +100,7 @@ function createQuestionnaire(
 
   function handleInput(data: string): void {
     if (matchesKey(data, HIDE_KEY)) {
-      hidden = !hidden;
-      getHandle()?.setHidden(hidden);
-      refresh();
-      return;
-    }
-    if (hidden) {
+      toggleOverlayVisibility();
       return;
     }
     const q = questions[tab];
@@ -170,10 +171,15 @@ function createQuestionnaire(
     if (questions.length > 1) {
       const tabs = questions.map((q, i) => {
         const label = ` ${q.header || `Q${i + 1}`} `;
-        return i === tab ? theme.fg("accent", theme.fg("text", label)) : theme.fg("dim", label);
+        return i === tab ? theme.fg("accent", label) : theme.fg("dim", label);
       });
       lines.push(...wrapTextWithAnsi(tabs.join(theme.fg("dim", "│")), w));
-      lines.push(...wrapTextWithAnsi(theme.fg("dim", "←/→ — вопросы · Ctrl+H — скрыть/показать"), w));
+      lines.push(
+        ...wrapTextWithAnsi(
+          theme.fg("dim", `←/→ вопросы · Ctrl+H ${overlayHidden ? "показать" : "скрыть"}`),
+          w,
+        ),
+      );
     }
     lines.push(theme.fg("accent", "─".repeat(w)));
 
@@ -182,7 +188,13 @@ function createQuestionnaire(
     lines.push("");
 
     q.options.forEach((option, index) => {
-      const mark = q.multiSelect ? (selected[tab].has(index) ? "[x]" : "[ ]") : selected[tab].has(index) ? "(•)" : "( )";
+      const mark = q.multiSelect
+        ? selected[tab].has(index)
+          ? "[x]"
+          : "[ ]"
+        : selected[tab].has(index)
+          ? "(•)"
+          : "( )";
       const prefix = index === cursor[tab] ? theme.fg("accent", "> ") : "  ";
       lines.push(...wrapTextWithAnsi(`${prefix}${mark} ${index + 1}. ${option.label}`, w));
       if (option.description) {
@@ -220,6 +232,15 @@ const hiddenRenderer = { render: (): string[] => [], invalidate: (): void => {} 
 
 /** Register the `ask` tool. */
 export function registerAskTool(pi: ExtensionAPI): void {
+  // Global toggle: a hidden overlay receives no key input, so the "show again"
+  // half has to be an app-level shortcut.
+  pi.registerShortcut(HIDE_KEY, {
+    description: "Скрыть/показать панель вопросов",
+    handler: () => {
+      toggleOverlayVisibility();
+    },
+  });
+
   pi.registerTool({
     name: ASK_TOOL_NAME,
     label: "Ask",
@@ -243,9 +264,15 @@ export function registerAskTool(pi: ExtensionAPI): void {
       }
 
       let handle: HideHandle | undefined;
+      overlayHidden = false;
       const result = await ctx.ui.custom<AskResult | null>(
-        (tui, theme, _kb, done) =>
-          createQuestionnaire(tui, theme, done, () => handle, input.questions),
+        (tui, theme, _kb, done) => {
+          activeOverlay = {
+            setHidden: (hidden: boolean) => handle?.setHidden(hidden),
+            refresh: () => tui.requestRender(),
+          };
+          return createQuestionnaire(tui, theme, done, input.questions);
+        },
         {
           overlay: true,
           overlayOptions: {
@@ -259,6 +286,8 @@ export function registerAskTool(pi: ExtensionAPI): void {
           },
         },
       );
+      activeOverlay = undefined;
+      overlayHidden = false;
 
       if (!result || result.cancelled) {
         return text("User cancelled the question.");
