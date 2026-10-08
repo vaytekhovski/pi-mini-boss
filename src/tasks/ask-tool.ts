@@ -67,7 +67,7 @@ const STRINGS: Record<string, Record<string, string>> = {
     question: "Вопрос",
     confirm: "Enter — подтвердить",
     change: "←/→ — изменить",
-    choose: "1-9 — выбрать · Enter — подтвердить",
+    choose: "1-9/Enter — выбрать",
     nav: "←→/↑↓ — навигация",
     hide: "скрыть",
     show: "показать",
@@ -79,7 +79,7 @@ const STRINGS: Record<string, Record<string, string>> = {
     question: "Question",
     confirm: "Enter — confirm",
     change: "←/→ — change",
-    choose: "1-9 — choose · Enter — confirm",
+    choose: "1-9/Enter — choose",
     nav: "←→/↑↓ — navigate",
     hide: "hide",
     show: "show",
@@ -211,21 +211,13 @@ function createQuestionnaire(
       return;
     }
     if (matchesKey(data, Key.enter)) {
-      // Enter only records the choice (or submits on the review tab); it never
-      // switches questions — the arrows do that.
+      // Enter behaves exactly like pressing the highlighted option's number.
       if (tab === REVIEW) {
         submit();
         return;
       }
       if (questions[tab].options.length > 0) {
-        const index = cursor[tab];
-        if (questions[tab].multiSelect) {
-          selected[tab].add(index);
-        } else {
-          selected[tab].clear();
-          selected[tab].add(index);
-        }
-        refresh();
+        chooseAndAdvance(cursor[tab]);
       }
       return;
     }
