@@ -74,7 +74,6 @@ recommended_extensions:
   # Делегирование
   - { name: pi-subagents, why: "делегирование и параллельные субагенты", group: Делегирование }
   - { name: pi-background-tasks, why: "долгие команды в фоне", group: Делегирование }
-  - { name: "@tintinweb/pi-subagents", why: "субагенты «как в Claude Code»", group: Делегирование, selected: false }
   - { name: pi-advisor-flow, why: "схема Исполнитель/Советник", group: Делегирование, selected: false }
   - { name: "@akagilnc/pi-workflow-roles", why: "роли под workflow", group: Делегирование, selected: false }
 
