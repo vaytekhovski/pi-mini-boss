@@ -103,6 +103,7 @@ recommended_extensions:
   - { name: pi-quiver, why: "context-safe fetch и конвертация PDF/DOCX в Markdown", group: Поиск, selected: false }
 
   # ── Наблюдаемость ───────────────────────────────────────────────────────────
+  - { name: "@narumitw/pi-usage", why: "расход текущего аккаунта и баланс провайдера", group: Наблюдаемость }
   - { name: "@langfuse/pi-observability-plugin", why: "трейсинг в Langfuse", group: Наблюдаемость, selected: false }
   - { name: "@langchain/langsmith-pi-extension", why: "трейсинг в LangSmith", group: Наблюдаемость, selected: false }
   - { name: "@raindrop-ai/pi-agent", why: "трейсинг в Raindrop", group: Наблюдаемость, selected: false }
