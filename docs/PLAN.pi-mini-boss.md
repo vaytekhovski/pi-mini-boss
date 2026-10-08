@@ -97,11 +97,13 @@ base_behavior:
   - минимальный diff — не переусложняй
   - обновляй статус задачи в том же шаге, где сделана работа — никогда не показывай устаревшие статусы
 
-# проверяется на session_start: отсутствует → ошибка/предложение установить
-required_extensions: [memory, todo, subagents]
+# проверяется на session_start; ядро (память, задачи) встроено, внешних обязательных нет
+required_extensions: []
 
 # предлагается с описанием «зачем» — install/пропустить
 recommended_extensions:
+  - name: pi-subagents
+    why: "делегирование и субагенты"
   - name: ponytail
     why: "лаконичный режим, меньше токенов"
   - name: pi-web-access
