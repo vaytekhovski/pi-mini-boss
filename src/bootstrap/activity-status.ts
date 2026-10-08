@@ -42,7 +42,7 @@ function render(ctx: ExtensionContext, text: string): void {
   if (!ctx.hasUI) {
     return;
   }
-  ctx.ui.setWidget(WIDGET_ID, [text]);
+  ctx.ui.setWidget(WIDGET_ID, [text], { placement: "belowEditor" });
 }
 
 /**
