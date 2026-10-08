@@ -110,8 +110,14 @@ export function registerBootstrap(pi: ExtensionAPI): void {
         return;
       }
       await ctx.ui.custom<void>((tui, _theme, _kb, done) => {
-        tui.terminal.clearScreen();
         done(undefined);
+        // clearScreen writes ANSI directly, so the renderer's cursor state goes
+        // stale — force a full repaint right after, or Pi is left on a black screen.
+        // `renderNow` exists only in newer pi-tui; requestRender(true) covers the
+        // 0.80 typed surface the package builds against.
+        tui.terminal.clearScreen();
+        (tui as unknown as { renderNow?: (force?: boolean) => void }).renderNow?.(true);
+        tui.requestRender(true);
         return { render: (): string[] => [], invalidate: (): void => {} };
       });
     },
