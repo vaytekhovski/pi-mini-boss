@@ -20,8 +20,8 @@ description_en: "Create and extend pi-mini-boss roles."
 ```markdown
 ---
 name: role-<slug>
-description: "<Специальность> — <фокус>. Use when the active pi-mini-boss role is <специальность>."
-description_en: "<Speciality> — <focus>. Use when the active pi-mini-boss role is <speciality>."
+description: "<Специальность> — <фокус>."
+description_en: "<Speciality> — <focus>."
 ---
 
 # Роль: <специальность>
