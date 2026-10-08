@@ -121,3 +121,15 @@ recommended_extensions:
   - { name: pi-herdr-agents, why: "асинхронные субагенты в изолированных worktree", group: Делегирование, selected: false }
   - { name: "@agimon-ai/doompi-workflow", why: "графы workflow как в GitHub Actions, артефакты, восстановление", group: Делегирование, selected: false }
   - { name: "@agimon-ai/doompi-git", why: "сессии в изолированных git worktree", group: Делегирование, selected: false }
+
+# Процесс работы, которому следует агент.
+workflow:
+  - plan
+  - do
+  - verify
+  - close
+
+# Сколько рассуждений генерировать и показывать (мапится на Pi defaultThinkingLevel / hideThinkingBlock).
+thinking:
+  level: low
+  hide: true

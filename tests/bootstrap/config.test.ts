@@ -21,7 +21,13 @@ describe('bootstrap config', () => {
       'core keeps the realtime-status rule',
     );
     assert.deepEqual(config.workflow, ['plan', 'do', 'verify', 'close']);
-    assert.deepEqual(config.required_extensions, ['memory', 'todo', 'subagents']);
+    assert.ok(config.thinking?.level, 'thinking.level is set');
+    // Memory and tasks ship inside the module, so nothing external is required.
+    assert.deepEqual(config.required_extensions, []);
+    assert.ok(
+      (config.recommended_extensions ?? []).length > 0,
+      'extension catalogue is not empty',
+    );
   });
 
   it('needs onboarding when the user config is absent', () => {
