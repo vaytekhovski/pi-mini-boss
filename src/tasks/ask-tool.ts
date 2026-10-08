@@ -33,6 +33,7 @@ const ASK_PARAMETERS = Type.Object({
       Type.Object({
         question: LocalizedSchema,
         header: Type.Optional(LocalizedSchema),
+        note: Type.Optional(LocalizedSchema),
         multiSelect: Type.Optional(Type.Boolean({ description: "Allow several choices" })),
         uiLanguage: Type.Optional(
           Type.Boolean({ description: "This question switches the panel language live" }),
@@ -54,6 +55,7 @@ interface OptionSpec {
 interface QuestionSpec {
   question: Localized;
   header?: Localized;
+  note?: Localized;
   multiSelect?: boolean;
   uiLanguage?: boolean;
   options: OptionSpec[];
@@ -280,6 +282,9 @@ function createQuestionnaire(
 
     const q = questions[qi];
     middle.push(...wrapTextWithAnsi(theme.fg("text", tr(q.question)), innerW));
+    if (q.note) {
+      middle.push(...wrapTextWithAnsi(theme.fg("muted", tr(q.note)), innerW));
+    }
     middle.push("");
     const optionLines: string[] = [];
     q.options.forEach((option, index) => {

@@ -19,6 +19,7 @@ export interface AskOption {
 export interface AskQuestion {
   question: string | Record<string, string>;
   header?: string | Record<string, string>;
+  note?: string | Record<string, string>;
   multiSelect?: boolean;
   uiLanguage?: boolean;
   options: AskOption[];
@@ -85,6 +86,11 @@ export function roleQuestions(): AskQuestion[] {
 export function extensionQuestions(): AskQuestion[] {
   const extensions = loadAgentConfig(DEFAULT_CONFIG_PATH).recommended_extensions ?? [];
   const installed = listInstalledPackages();
+  // Explain what this window is and what the two glyphs mean, on every tab.
+  const note = {
+    ru: "Выбери, что установить (остальное не ставится). ★ — рекомендую, ✓ — уже установлено",
+    en: "Pick what to install (the rest stays out). ★ — recommended, ✓ — already installed",
+  };
   const isInstalled = (name: string): boolean =>
     installed.some((pkg) => pkg.toLowerCase().includes(name.toLowerCase()));
 
@@ -93,6 +99,7 @@ export function extensionQuestions(): AskQuestion[] {
       {
         question: "Дополнительно",
         header: "Дополнительно",
+        note,
         multiSelect: true,
         options: [{ label: "ponytail", description: "лаконичный режим", selected: true }],
       },
@@ -113,6 +120,7 @@ export function extensionQuestions(): AskQuestion[] {
   return groups.map((group) => ({
     question: group,
     header: group,
+    note,
     multiSelect: true,
     options: (byGroup.get(group) ?? []).map((ext) => ({
       label: ext.name,
