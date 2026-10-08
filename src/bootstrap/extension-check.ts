@@ -21,6 +21,11 @@ function readInstalledPackages(settingsPath: string): string[] {
   }
 }
 
+/** Package sources from the user's Pi settings (for the onboarding markers). */
+export function listInstalledPackages(settingsPath: string = SETTINGS_PATH): string[] {
+  return readInstalledPackages(settingsPath);
+}
+
 /** Loose match: a short config name ("todo") against a package source ("npm:@juicesharp/rpiv-todo"). */
 function isInstalled(installed: string[], name: string): boolean {
   const needle = name.toLowerCase();

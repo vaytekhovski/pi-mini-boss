@@ -15,7 +15,7 @@ import {
   needsOnboarding,
   type AgentConfig,
 } from "./config.js";
-import { checkExtensions } from "./extension-check.js";
+import { checkExtensions, listInstalledPackages } from "./extension-check.js";
 
 /** Render the role + core rules + workflow as a system-prompt section. */
 function buildSystemPromptBlock(config: AgentConfig): string {
@@ -70,6 +70,9 @@ function buildOnboardPrompt(): string {
   const purposeOptions =
     purposes.length > 0 ? purposes : [{ slug: "веб-приложение / SaaS", description: "продукт для пользователей" }];
   const extensionLines: string[] = [];
+  const installedPackages = listInstalledPackages();
+  const alreadyInstalled = (name: string): boolean =>
+    installedPackages.some((pkg) => pkg.toLowerCase().includes(name.toLowerCase()));
   if (extensions.length > 0) {
     // One question (tab) per `group`, in first-seen order.
     const groups: string[] = [];
@@ -87,8 +90,9 @@ function buildOnboardPrompt(): string {
       extensionLines.push(`  {question:"${group}", header:"${group}", multiSelect:true, options:[`);
       items.forEach((ext, index) => {
         const selected = ext.selected === false ? "" : ", selected:true";
+        const installedFlag = alreadyInstalled(ext.name) ? ", installed:true" : "";
         const tail = index === items.length - 1 ? " ]}" : ",";
-        extensionLines.push(`    {label:"${ext.name}", description:"${ext.why}"${selected}}${tail}`);
+        extensionLines.push(`    {label:"${ext.name}", description:"${ext.why}"${selected}${installedFlag}}${tail}`);
       });
       extensionLines[extensionLines.length - 1] += gi === groups.length - 1 ? " ]" : ",";
     });
