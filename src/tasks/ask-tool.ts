@@ -314,7 +314,7 @@ function createQuestionnaire(
     // Fixed height: measure every question and pad the shown one, so switching
     // tabs never resizes the window. Two spare rows keep some breathing room.
     const built = [...Array(questions.length + 1).keys()].map((qi) => buildBody(qi, innerW));
-    const maxRows = Math.max(...built.map((b) => b.top.length + b.middle.length + b.bottom.length)) * 2;
+    const maxRows = Math.max(...built.map((b) => b.top.length + b.middle.length + b.bottom.length)) + 2;
     const { top, middle, bottom } = built[tab];
     // Tabs stick to the top, hints to the bottom; the spare space sits between.
     const padTotal = Math.max(0, maxRows - (top.length + middle.length + bottom.length));
