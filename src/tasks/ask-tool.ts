@@ -13,9 +13,12 @@ const ASK_TOOL_NAME = "ask";
 /** Toggle the panel so the transcript can be seen/scrolled. */
 const HIDE_KEY = Key.ctrl("h");
 
+/** Text that is either plain or per-locale, e.g. { ru: "...", en: "..." }. */
+const LocalizedSchema = Type.Union([Type.String(), Type.Record(Type.String(), Type.String())]);
+
 const OptionSchema = Type.Object({
-  label: Type.String({ description: "Short option label" }),
-  description: Type.Optional(Type.String({ description: "What the option means" })),
+  label: LocalizedSchema,
+  description: Type.Optional(LocalizedSchema),
   selected: Type.Optional(Type.Boolean({ description: "Pre-select this option" })),
 });
 
@@ -23,8 +26,8 @@ const ASK_PARAMETERS = Type.Object({
   locale: Type.Optional(Type.String({ description: "UI language of the panel: ru | en" })),
   questions: Type.Array(
     Type.Object({
-      question: Type.String({ description: "The question to ask" }),
-      header: Type.Optional(Type.String({ description: "Short tab label" })),
+      question: LocalizedSchema,
+      header: Type.Optional(LocalizedSchema),
       multiSelect: Type.Optional(Type.Boolean({ description: "Allow several choices" })),
       uiLanguage: Type.Optional(
         Type.Boolean({ description: "This question switches the panel language live" }),
@@ -35,14 +38,15 @@ const ASK_PARAMETERS = Type.Object({
   ),
 });
 
+type Localized = string | Record<string, string>;
 interface OptionSpec {
-  label: string;
-  description?: string;
+  label: Localized;
+  description?: Localized;
   selected?: boolean;
 }
 interface QuestionSpec {
-  question: string;
-  header?: string;
+  question: Localized;
+  header?: Localized;
   multiSelect?: boolean;
   uiLanguage?: boolean;
   options: OptionSpec[];
@@ -115,13 +119,19 @@ function createQuestionnaire(
   const languageIndex = questions.findIndex((q) => q.uiLanguage === true);
   const locale = (): string => {
     if (languageIndex >= 0) {
-      const label = (questions[languageIndex].options[cursor[languageIndex]]?.label ?? "").toLowerCase();
+      const label = (tr(questions[languageIndex].options[cursor[languageIndex]]?.label) ?? "").toLowerCase();
       if (label.startsWith("en")) return "en";
       if (label.startsWith("ru")) return "ru";
     }
     return baseLocale === "en" ? "en" : "ru";
   };
   const t = (key: string): string => STRINGS[locale()]?.[key] ?? STRINGS.ru[key] ?? key;
+  /** Resolve a possibly-localized text for the active locale. */
+  const tr = (value: Localized | undefined, fallback = ""): string => {
+    if (value === undefined) return fallback;
+    if (typeof value === "string") return value;
+    return value[locale()] ?? value.ru ?? value.en ?? fallback;
+  };
   const selected = questions.map(
     (q) => new Set<number>(q.options.map((o, i) => (o.selected ? i : -1)).filter((i) => i >= 0)),
   );
@@ -140,8 +150,8 @@ function createQuestionnaire(
   const submit = () => {
     done({
       answers: questions.map((q, qi) => ({
-        header: q.header || q.question,
-        labels: [...selected[qi]].sort((a, b) => a - b).map((i) => q.options[i].label),
+        header: tr(q.header) || tr(q.question),
+        labels: [...selected[qi]].sort((a, b) => a - b).map((i) => tr(q.options[i].label)),
       })),
       cancelled: false,
     });
@@ -238,7 +248,7 @@ function createQuestionnaire(
     const middle: string[] = [];
     const bottom: string[] = [];
     if (questions.length > 1) {
-      const labels = [...questions.map((tq, i) => tq.header || `${t("question")} ${i + 1}`), t("summary")];
+      const labels = [...questions.map((tq, i) => tr(tq.header) || `${t("question")} ${i + 1}`), t("summary")];
       const tabs = labels.map((label, i) =>
         i === qi ? theme.fg("accent", `▸ ${label}`) : theme.fg("dim", label),
       );
@@ -251,10 +261,10 @@ function createQuestionnaire(
       middle.push("");
       const block: string[] = [];
       questions.forEach((q, i) => {
-        const labels = [...selected[i]].sort((a, b) => a - b).map((index) => q.options[index].label);
+        const labels = [...selected[i]].sort((a, b) => a - b).map((index) => tr(q.options[index].label));
         const value = labels.length > 0 ? labels.join(", ") : t("none");
         block.push(
-          ...wrapTextWithAnsi(`${theme.fg("muted", `${q.header || `${t("question")} ${i + 1}`}:`)} ${value}`, innerW),
+          ...wrapTextWithAnsi(`${theme.fg("muted", `${tr(q.header) || `${t("question")} ${i + 1}`}:`)} ${value}`, innerW),
         );
       });
       // Same treatment as the options: one left-aligned block, centred as a whole.
@@ -268,15 +278,15 @@ function createQuestionnaire(
     }
 
     const q = questions[qi];
-    middle.push(...wrapTextWithAnsi(theme.fg("text", q.question), innerW));
+    middle.push(...wrapTextWithAnsi(theme.fg("text", tr(q.question)), innerW));
     middle.push("");
     const optionLines: string[] = [];
     q.options.forEach((option, index) => {
       const isSelected = selected[qi].has(index);
       const marker = isSelected ? theme.fg("accent", q.multiSelect ? "◉" : "●") : theme.fg("dim", "○");
       const star = recommended[qi].has(index) ? ` ${theme.fg("warning", "★")}` : "";
-      const label = isSelected ? theme.fg("accent", option.label) : theme.fg("text", option.label);
-      const desc = option.description ? ` ${theme.fg("muted", `— ${option.description}`)}` : "";
+      const label = isSelected ? theme.fg("accent", tr(option.label)) : theme.fg("text", tr(option.label));
+      const desc = option.description ? ` ${theme.fg("muted", `— ${tr(option.description)}`)}` : "";
       const focus = index === cursor[qi] ? theme.fg("accent", "‣") : " ";
       optionLines.push(...wrapTextWithAnsi(`${focus} ${marker} ${index + 1}. ${label}${star}${desc}`, innerW));
     });
