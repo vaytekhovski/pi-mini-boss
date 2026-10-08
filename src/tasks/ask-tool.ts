@@ -190,11 +190,6 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     }
 
     const q = questions[qi];
-    const heading = `${q.header || `Вопрос ${qi + 1}`}${
-      questions.length > 1 ? ` · ${qi + 1}/${questions.length}` : ""
-    }`;
-    middle.push(...wrapTextWithAnsi(theme.fg("accent", heading), innerW));
-    middle.push("");
     middle.push(...wrapTextWithAnsi(theme.fg("text", q.question), innerW));
     middle.push("");
     const optionLines: string[] = [];
