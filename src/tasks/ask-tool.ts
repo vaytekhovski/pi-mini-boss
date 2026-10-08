@@ -148,40 +148,31 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     }
   }
 
-  function render(width: number): string[] {
-    if (cached) {
-      return cached;
-    }
-    const w = Math.max(14, width);
-    const innerW = Math.max(6, w - 4);
-    const accent = (s: string) => theme.fg("accent", s);
-    const q = questions[tab];
+  /** Build the (wrapped) body for one question. */
+  const buildBody = (qi: number, innerW: number): string[] => {
+    const q = questions[qi];
     const body: string[] = [];
-
     if (questions.length > 1) {
       const tabs = questions.map((tq, i) =>
-        i === tab
+        i === qi
           ? theme.fg("accent", `▸ ${tq.header || `Q${i + 1}`}`)
           : theme.fg("dim", `${tq.header || `Q${i + 1}`}`),
       );
       body.push(...wrapTextWithAnsi(tabs.join(theme.fg("dim", " · ")), innerW));
       body.push("");
     }
-
     body.push(...wrapTextWithAnsi(theme.fg("text", q.question), innerW));
     body.push("");
-
     q.options.forEach((option, index) => {
-      const isSelected = selected[tab].has(index);
+      const isSelected = selected[qi].has(index);
       const marker = isSelected ? theme.fg("accent", q.multiSelect ? "◉" : "●") : theme.fg("dim", "○");
-      const star = recommended[tab].has(index) ? ` ${theme.fg("warning", "★")}` : "";
+      const star = recommended[qi].has(index) ? ` ${theme.fg("warning", "★")}` : "";
       const label = isSelected ? theme.fg("accent", option.label) : theme.fg("text", option.label);
       body.push(...wrapTextWithAnsi(`${marker} ${index + 1}. ${label}${star}`, innerW));
       if (option.description) {
         body.push(...wrapTextWithAnsi(`   ${theme.fg("muted", option.description)}`, innerW));
       }
     });
-
     body.push("");
     body.push(...wrapTextWithAnsi(theme.fg("dim", "1-9/Enter — выбрать"), innerW));
     body.push(...wrapTextWithAnsi(theme.fg("dim", "↑↓/←→ — вопросы"), innerW));
@@ -191,8 +182,27 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
         innerW,
       ),
     );
+    return body;
+  };
 
-    // Box: topic + number in the top border, brand in the bottom border.
+  function render(width: number): string[] {
+    if (cached) {
+      return cached;
+    }
+    const w = Math.max(14, width);
+    const innerW = Math.max(6, w - 4);
+    const accent = (s: string) => theme.fg("accent", s);
+
+    // Fixed height: measure every question and pad the shown one, so switching
+    // tabs never resizes the window. Two spare rows keep some breathing room.
+    const bodies = questions.map((_, qi) => buildBody(qi, innerW));
+    const maxRows = Math.max(...bodies.map((b) => b.length)) + 2;
+    const body = bodies[tab];
+    while (body.length < maxRows) {
+      body.push("");
+    }
+
+    const q = questions[tab];
     const heading = `${q.header || `Вопрос ${tab + 1}`}${
       questions.length > 1 ? ` · ${tab + 1}/${questions.length}` : ""
     }`;
@@ -272,11 +282,15 @@ export function registerAskTool(pi: ExtensionAPI): void {
       overlayHidden = false;
       const result = await ctx.ui.custom<AskResult | null>(
         (tui, theme, _kb, done) => {
+          const component = createQuestionnaire(tui, theme, done, input.questions);
           activeOverlay = {
             setHidden: (hidden: boolean) => handle?.setHidden(hidden),
-            refresh: () => tui.requestRender(),
+            refresh: () => {
+              component.invalidate();
+              tui.requestRender();
+            },
           };
-          return createQuestionnaire(tui, theme, done, input.questions);
+          return component;
         },
         {
           overlay: true,
