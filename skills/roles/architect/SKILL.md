@@ -1,5 +1,6 @@
 ---
 name: role-architect
+disable-model-invocation: true
 description: "Роль pi-mini-boss: architect (архитектура, ревью, технические решения). Заглушка — заполнить фокус, профиль и критерии."
 ---
 

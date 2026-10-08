@@ -1,5 +1,6 @@
 ---
 name: role-qa
+disable-model-invocation: true
 description: "Роль pi-mini-boss: qa (тесты, качество, автотесты). Заглушка — заполнить фокус, профиль и критерии."
 ---
 

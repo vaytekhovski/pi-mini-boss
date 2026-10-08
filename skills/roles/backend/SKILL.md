@@ -1,5 +1,6 @@
 ---
 name: role-backend
+disable-model-invocation: true
 description: "Роль pi-mini-boss: backend (серверная логика, API, данные, миграции). Заглушка — заполнить фокус, профиль и критерии."
 ---
 

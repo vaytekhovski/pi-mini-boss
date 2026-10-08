@@ -12,7 +12,7 @@ import yaml from "js-yaml";
 import { AGENT_ROOT } from "../paths.js";
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
-const PACKAGE_ROOT = path.resolve(MODULE_DIR, "..", "..");
+export const PACKAGE_ROOT = path.resolve(MODULE_DIR, "..", "..");
 
 /** Shipped default template. */
 export const DEFAULT_CONFIG_PATH = path.join(PACKAGE_ROOT, "config", "agent.yaml");

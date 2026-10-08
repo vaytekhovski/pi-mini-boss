@@ -1,5 +1,6 @@
 ---
 name: role-data
+disable-model-invocation: true
 description: "Роль pi-mini-boss: data (пайплайны, аналитика, ML). Заглушка — заполнить фокус, профиль и критерии."
 ---
 

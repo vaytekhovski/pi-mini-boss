@@ -4,9 +4,12 @@
  *   • injects role + base_behavior + workflow into every system prompt;
  *   • exposes /onboard to (re)configure.
  */
+import fs from "node:fs";
+import path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
   DEFAULT_CONFIG_PATH,
+  PACKAGE_ROOT,
   USER_CONFIG_PATH,
   loadAgentConfig,
   needsOnboarding,
@@ -36,7 +39,32 @@ function buildSystemPromptBlock(config: AgentConfig): string {
  * agent absolute paths, so it never has to explore the filesystem or look up a
  * skill (that exploration was the old noisy behaviour).
  */
+/** Roles implemented as skills; stubs carry `disable-model-invocation: true`. */
+function listImplementedRoles(): Array<{ slug: string; description: string }> {
+  const dir = path.join(PACKAGE_ROOT, "skills", "roles");
+  if (!fs.existsSync(dir)) {
+    return [];
+  }
+  const roles: Array<{ slug: string; description: string }> = [];
+  for (const slug of fs.readdirSync(dir)) {
+    const file = path.join(dir, slug, "SKILL.md");
+    if (!fs.existsSync(file)) {
+      continue;
+    }
+    const text = fs.readFileSync(file, "utf8");
+    if (/^disable-model-invocation:\s*true\s*$/m.test(text) || text.includes("ЗАГЛУШКА")) {
+      continue;
+    }
+    const description = /^description:\s*"?([^"\n]+?)"?\s*$/m.exec(text)?.[1]?.trim() ?? slug;
+    roles.push({ slug, description });
+  }
+  return roles.sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
 function buildOnboardPrompt(): string {
+  const roles = listImplementedRoles();
+  const roleOptions =
+    roles.length > 0 ? roles : [{ slug: "senior backend developer", description: "бэкенд, API, сервисы" }];
   return [
     "Онбординг pi-mini-boss.",
     "ВАЖНО: не исследуй файловую систему, не запускай команды, не ищи и не загружай скиллы — никаких ls/pwd/grep/skill_manage.",
@@ -44,15 +72,10 @@ function buildOnboardPrompt(): string {
     "Шаг 1. Одним вызовом tool `ask` задай все 4 вопроса (параметр `questions` — массив; в панели они станут вкладками, ←/→ переключение). Никаких отдельных вызовов:",
     'ask questions=[',
     '  {question:"Кто ты?", header:"Роль", options:[',
-    '    {label:"senior backend developer", description:"бэкенд, API, сервисы", selected:true},',
-    '    {label:"frontend developer", description:"интерфейсы, вёрстка, UX"},',
-    '    {label:"fullstack developer", description:"и бэкенд, и фронтенд"},',
-    '    {label:"mobile developer", description:"iOS / Android / кроссплатформа"},',
-    '    {label:"DevOps / SRE engineer", description:"CI/CD, инфраструктура, надёжность"},',
-    '    {label:"data / ML engineer", description:"пайплайны, модели, аналитика"},',
-    '    {label:"QA / test automation engineer", description:"тесты, качество, автотесты"},',
-    '    {label:"architect / tech lead", description:"архитектура, ревью, решения"},',
-    '    {label:"role author", description:"писать и дополнять роли pi-mini-boss"} ]},',
+    ...roleOptions.map(
+      (role, index) =>
+        `    {label:"${role.slug}", description:"${role.description}"${index === 0 ? ", selected:true" : ""}}${index === roleOptions.length - 1 ? " ]}," : ","}`,
+    ),
     '  {question:"Над чем ты работаешь?", header:"Назначение", options:[',
     '    {label:"веб-приложение / SaaS", description:"продукт для пользователей", selected:true},',
     '    {label:"бэкенд, API и сервисы", description:"серверная логика и интеграции"},',

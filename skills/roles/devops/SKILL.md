@@ -1,5 +1,6 @@
 ---
 name: role-devops
+disable-model-invocation: true
 description: "Роль pi-mini-boss: devops (CI/CD, инфраструктура, надёжность). Заглушка — заполнить фокус, профиль и критерии."
 ---
 

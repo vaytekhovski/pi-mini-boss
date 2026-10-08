@@ -1,5 +1,6 @@
 ---
 name: role-mobile
+disable-model-invocation: true
 description: "Роль pi-mini-boss: mobile (iOS/Android, кроссплатформа). Заглушка — заполнить фокус, профиль и критерии."
 ---
 

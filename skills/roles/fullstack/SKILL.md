@@ -1,5 +1,6 @@
 ---
 name: role-fullstack
+disable-model-invocation: true
 description: "Роль pi-mini-boss: fullstack (и бэкенд, и фронтенд). Заглушка — заполнить фокус, профиль и критерии."
 ---
 
