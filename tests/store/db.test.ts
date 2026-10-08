@@ -19,7 +19,8 @@ describe('DatabaseManager', () => {
 
   afterEach(() => {
     dbManager.close();
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    AtomicLockCoordinator.discardAllShared();
+    fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
 
   function assertQuickCheckOk(db: InstanceType<typeof Database>): void {

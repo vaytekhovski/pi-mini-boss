@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { DatabaseManager } from '../../src/store/db.js';
+import { AtomicLockCoordinator } from '../../src/store/atomic-lock-coordinator.js';
 import {
   scheduleLiveSessionIndex,
   waitForLiveSessionIndex,
@@ -21,7 +22,8 @@ describe('session live indexing handler', () => {
 
   afterEach(() => {
     dbManager.close();
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    AtomicLockCoordinator.discardAllShared();
+    fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
 
   function createSnapshot(entries: unknown[]) {

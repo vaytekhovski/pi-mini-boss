@@ -13,6 +13,7 @@
 4. **Свой веб-дашборд** — реальтайм по задачам, больше статусов, без скриптов-костылей.
 5. **Рекомендация модулей** — предлагает установить нужные, объясняя зачем и что дадут.
 6. **Кроссплатформенность** — Windows / WSL / Linux / macOS: тесты и рантайм не зависят от ОС.
+7. **Живой статус в UI** — виджет «чем занят агент» над доской Todos, реалтайм (реализовано: `src/bootstrap/activity-status.ts`).
 
 ## 1. Аудит текущего состояния (что уже стоит)
 
@@ -94,7 +95,7 @@ base_behavior:
   - проверяй, что правка реально легла в файл (не доверяй вызову edit)
   - авторитетны сборка и тесты, а не диагностика IDE/LSP
   - минимальный diff — не переусложняй
-  - отмечай статус задачи при старте и при завершении
+  - обновляй статус задачи в том же шаге, где сделана работа — никогда не показывай устаревшие статусы
 
 # проверяется на session_start: отсутствует → ошибка/предложение установить
 required_extensions: [memory, todo, subagents]
@@ -198,7 +199,30 @@ thinking: { level: low, hide: true }
 - `billion-context-pi` — добавить как recommended (лёгкий Pi-фасад, не proxy).
 - `base_behavior` vs `/memory-pin` — оставить ОБА (разный владелец, см. §3.1).
 
+## 9. Технический долг: Windows-тесты (отложено)
+
+Baseline: 45/58 файлов ✓. Остаток — наследие апстрима (его CI = Linux), на пользователей в основном не влияет.
+
+**Закрыто минимальным фиксом** (`AtomicLockCoordinator.discardAllShared()` + retry в teardown): `session-live-index` (7/7), `markdown-mutation-lock` (1/1), `sync-markdown-memories` (16/19), `db` (37/44). Дополнительно вырезана `extension-root-migration` (легаси-миграция hermes — не нужна новой системе).
+
+**Осталось (backlog, Windows-only):**
+- EBUSY/EPERM: `db` 3 recovery-теста (spawn), `sync-markdown-memories` 1, `review-memory-ops`, `lazy-startup`, `project-rebinding`, `recovery-maintenance` (прод чистит lock-БД), `atomic-lock-coordinator` (нужен публичный `close()`).
+- POSIX-пути: `sqlite-native`, `skills-command`, `pi-child-process`.
+- ESM-path: `sqlite-lazy-load` (`pathToFileURL` из-за `X:\`).
+
+**Почему отложено:** тестовая гигиена апстрима, не ядро pi-mini-boss. Возврат — если всплывёт реальный Windows-баг (напр. удаление lock-БД в recovery).
+
+## 10. Открытые вопросы
+
 **Открыто (закрыть по ходу):**
 - npm scope — `pi-mini-boss` или `@vaytekhovski/pi-mini-boss`?
 - Дашборд: один сервер на все проекты или per-project?
 - `pi-goal-x` свернуть в конфиг или оставить отдельным пакетом?
+
+## 11. UI: веб-интерфейс + нативный (требование)
+
+Нужны **оба** интерфейса, и оба — лучше того, что есть сейчас.
+
+- **Нативный (TUI Pi).** Ограничение: `setWidget` умеет только `aboveEditor`/`belowEditor`, на всю ширину — правой панели нет. Значит «лучше, чем TUI Pi» = свой TUI-слой (кастомный full-screen layout или долгоживущий оверлей) со **правой панелью задач**, реалтаймом и бóльшим набором статусов. Пока — виджет над редактором (`src/bootstrap/activity-status.ts`, `aboveEditor`).
+- **Веб-интерфейс (Phase 5).** Сайдбар справа, реалтайм (SSE), свои статусы (pending/in_progress/completed/blocked/priority), без carrier-session-хаков `kanban-sync.mjs`.
+- **Общее ядро:** один стор задач (файл/SQLite), из которого читают и TUI, и веб → статусы всегда актуальны в обоих, без рассинхрона.

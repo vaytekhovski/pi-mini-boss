@@ -48,7 +48,6 @@ describe("SQLite native loading is deferred past extension load", () => {
     // poisoned require hook is installed before the graph is evaluated.
     const body = [
       `for (const specifier of ${JSON.stringify([
-        path.join(srcRoot, "extension-root-migration.ts"),
         path.join(srcRoot, "store/db.ts"),
         path.join(srcRoot, "store/atomic-lock-coordinator.ts"),
       ])}) {`,

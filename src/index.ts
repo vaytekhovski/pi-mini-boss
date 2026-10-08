@@ -47,7 +47,9 @@ import { registerInterviewCommand } from "./handlers/interview.js";
 import { registerSwitchProjectCommand } from "./handlers/switch-project.js";
 import { registerIndexSessionsCommand } from "./handlers/index-sessions.js";
 import { registerLearnMemoryCommand } from "./handlers/learn-memory.js";
-import { migrateThenSyncMarkdownMemories, registerSyncMarkdownMemoriesCommand } from "./handlers/sync-markdown-memories.js";
+import { syncMarkdownMemoriesToSqlite, registerSyncMarkdownMemoriesCommand } from "./handlers/sync-markdown-memories.js";
+import { registerActivityStatus } from "./bootstrap/activity-status.js";
+import { registerBootstrap } from "./bootstrap/index.js";
 import { registerPreviewContextCommand } from "./handlers/preview-context.js";
 import { registerStandingPinCommand } from "./handlers/standing-pin.js";
 import { StandingInstructions } from "./store/standing-instructions.js";
@@ -58,7 +60,6 @@ import { detectProject, detectProjectSkills } from "./project.js";
 import { buildPromptContext } from "./prompt-context.js";
 import { migrateLegacyProjectMemoryDirs } from "./project-memory-migration.js";
 import { AGENT_ROOT } from "./paths.js";
-import { isDatabaseMigrationPending } from "./extension-root-migration.js";
 import { measureLifecycle, measureLifecycleSync } from "./lifecycle-timing.js";
 import { createMemoryInitializer, withMemoryInitialization, type EnsureMemoryReady } from "./memory-initialization.js";
 
@@ -90,6 +91,8 @@ export function registerProjectSkillDiscoveryHandler(
 }
 
 export default function (pi: ExtensionAPI) {
+  registerActivityStatus(pi);
+  registerBootstrap(pi);
   const config = loadConfig();
   const lazy = config.lazyInitialization === true && config.memoryMode === "policy-only";
   let sessionContext: ExtensionContext | undefined;
@@ -127,12 +130,8 @@ export default function (pi: ExtensionAPI) {
   let databaseClosed = false;
   const backfillState: SessionBackfillState = { inProgress: false, promise: null };
   dbManager.setQuickCheckOnOpen(config.quickCheckOnOpen ?? true);
-  // No database may open before first-use migration has completed.
-  let databaseMigrationPending = (lazy && shouldMigrateExtensionRoot) || (shouldMigrateExtensionRoot
-    && isDatabaseMigrationPending(legacyGlobalDir, globalDir));
   dbManager.setOpenGuard(() => {
     if (databaseClosed) throw new Error("Memory session has shut down");
-    if (databaseMigrationPending) throw new Error("Legacy sessions.db migration is pending");
   });
   const sessionsDir = path.join(agentRoot, "sessions");
 
@@ -206,18 +205,12 @@ export default function (pi: ExtensionAPI) {
           const startupProject = ctx?.cwd
             ? detectProject(config.projectsMemoryDir, ctx.cwd).name
             : null;
-          await migrateThenSyncMarkdownMemories(
+          await syncMarkdownMemoriesToSqlite(
             dbManager,
-            shouldMigrateExtensionRoot ? legacyGlobalDir : null,
             globalDir,
             config.projectsMemoryDir,
             agentRoot,
-            {
-              onlyProjects: startupProject ? [startupProject] : [],
-              onMigrationSucceeded: () => {
-                databaseMigrationPending = false;
-              },
-            },
+            { onlyProjects: startupProject ? [startupProject] : [] },
           );
         });
         persistenceInitialized = true;

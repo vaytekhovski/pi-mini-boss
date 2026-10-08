@@ -28,7 +28,8 @@ describe("markdown mutation lock", () => {
       assert.ok(deleteAttempts >= 4);
     } finally {
       prototype.deleteOwnedLock = originalDeleteOwnedLock;
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      AtomicLockCoordinator.discardAllShared();
+      fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
     }
   });
 });

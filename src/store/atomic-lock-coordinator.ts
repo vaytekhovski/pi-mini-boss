@@ -380,4 +380,17 @@ export class AtomicLockCoordinator {
     }
     return coordinator;
   }
+
+  /**
+   * Close and forget every process-wide coordinator. Intended for tests so a
+   * caller can delete directories that held lock databases: on Windows an open
+   * SQLite handle blocks the delete with EPERM, unlike POSIX where unlinking an
+   * open file is allowed.
+   */
+  static discardAllShared(): void {
+    for (const coordinator of sharedCoordinators.values()) {
+      coordinator.discardCachedDb();
+    }
+    sharedCoordinators.clear();
+  }
 }

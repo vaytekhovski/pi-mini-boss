@@ -13,10 +13,6 @@ import {
 } from '../store/sqlite-memory-store.js';
 import { ENTRY_DELIMITER, MEMORY_FILE, USER_FILE } from '../constants.js';
 import { AGENT_ROOT } from '../paths.js';
-import {
-  migrateExtensionRoot,
-  type ExtensionRootMigrationOptions,
-} from '../extension-root-migration.js';
 import { withMarkdownMutationLock } from '../store/markdown-mutation-lock.js';
 
 export interface BackfillCounters {
@@ -26,10 +22,6 @@ export interface BackfillCounters {
   skipped: number;
   removed: number;
   warnings: string[];
-}
-
-export interface MigrationSyncOptions extends ExtensionRootMigrationOptions, SyncMarkdownOptions {
-  onMigrationSucceeded?: () => void;
 }
 
 export interface SyncMarkdownOptions {
@@ -228,28 +220,6 @@ export async function syncMarkdownMemoriesToSqlite(
   }
 
   return { ...counters, projectCount: projectNames.size };
-}
-
-export async function migrateThenSyncMarkdownMemories(
-  dbManager: DatabaseManager,
-  legacyGlobalDir: string | null,
-  globalDir: string,
-  projectsMemoryDir?: string,
-  agentRoot = AGENT_ROOT,
-  migrationOptions: MigrationSyncOptions = {},
-): Promise<BackfillCounters & { projectCount: number }> {
-  if (legacyGlobalDir) {
-    const migration = await migrateExtensionRoot(legacyGlobalDir, globalDir, migrationOptions);
-    const sessionsFailure = migration.criticalFailures.find((failure) => failure.name === 'sessions.db');
-    if (sessionsFailure) {
-      throw new Error(`sessions.db migration failed: ${sessionsFailure.message}`);
-    }
-    migrationOptions.onMigrationSucceeded?.();
-  }
-  return await syncMarkdownMemoriesToSqlite(dbManager, globalDir, projectsMemoryDir, agentRoot, {
-    force: migrationOptions.force,
-    onlyProjects: migrationOptions.onlyProjects,
-  });
 }
 
 export function registerSyncMarkdownMemoriesCommand(

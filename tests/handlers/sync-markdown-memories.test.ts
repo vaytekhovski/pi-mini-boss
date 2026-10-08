@@ -7,7 +7,6 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { DatabaseManager } from '../../src/store/db.js';
 import { registerMemoryTool } from '../../src/tools/memory-tool.js';
 import {
-  migrateThenSyncMarkdownMemories,
   registerSyncMarkdownMemoriesCommand,
   syncMarkdownMemoriesToSqlite,
 } from '../../src/handlers/sync-markdown-memories.js';
@@ -49,7 +48,8 @@ describe('memory sqlite sync + markdown backfill', () => {
 
   afterEach(() => {
     dbManager.close();
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    AtomicLockCoordinator.discardAllShared();
+    fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
 
   it('memory tool writes are immediately searchable in SQLite', async () => {
@@ -386,124 +386,6 @@ describe('memory sqlite sync + markdown backfill', () => {
       assert.strictEqual(results[0].content, 'custom root project entry');
     } finally {
       customDbManager.close();
-    }
-  });
-
-  it('migrates a populated legacy database before startup reconciliation', async () => {
-    dbManager.close();
-    const legacyDir = path.join(agentRoot, 'memory');
-    const targetDir = path.join(agentRoot, 'pi-hermes-memory');
-    fs.mkdirSync(legacyDir, { recursive: true });
-    const legacyManager = new DatabaseManager(legacyDir);
-    legacyManager.getDb().prepare(`
-      INSERT INTO sessions (id, project, cwd, started_at, ended_at, message_count)
-      VALUES ('legacy-session', 'legacy-project', '/legacy/project', '2026-07-01', NULL, 1)
-    `).run();
-    legacyManager.close();
-
-    const targetManager = new DatabaseManager(targetDir);
-    try {
-      await migrateThenSyncMarkdownMemories(targetManager, legacyDir, targetDir, undefined, agentRoot);
-
-      const sessions = targetManager.getDb().prepare('SELECT id FROM sessions').all() as Array<{ id: string }>;
-      assert.deepStrictEqual(sessions.map((session) => session.id), ['legacy-session']);
-    } finally {
-      targetManager.close();
-    }
-  });
-
-  it('does not create a destination database after critical migration failure', async () => {
-    dbManager.close();
-    const legacyDir = path.join(agentRoot, 'memory');
-    const targetDir = path.join(agentRoot, 'pi-hermes-memory');
-    fs.mkdirSync(legacyDir, { recursive: true });
-    fs.writeFileSync(path.join(legacyDir, 'sessions.db'), 'populated legacy database', 'utf-8');
-    const targetManager = new DatabaseManager(targetDir);
-    let migrationSucceeded = false;
-
-    try {
-      await assert.rejects(
-        migrateThenSyncMarkdownMemories(
-          targetManager,
-          legacyDir,
-          targetDir,
-          undefined,
-          agentRoot,
-          {
-            moveFile: async () => {
-              throw new Error('injected sessions.db move failure');
-            },
-            onMigrationSucceeded: () => {
-              migrationSucceeded = true;
-            },
-          },
-        ),
-        /sessions\.db migration failed/,
-      );
-      assert.equal(fs.existsSync(path.join(targetDir, 'sessions.db')), false);
-      assert.equal(fs.existsSync(path.join(legacyDir, 'sessions.db')), true);
-      assert.equal(migrationSucceeded, false);
-    } finally {
-      targetManager.close();
-    }
-  });
-
-  it('hands a corrupt legacy database to bounded destination recovery', async () => {
-    dbManager.close();
-    const legacyDir = path.join(agentRoot, 'memory');
-    const targetDir = path.join(agentRoot, 'pi-hermes-memory');
-    fs.mkdirSync(legacyDir, { recursive: true });
-    fs.writeFileSync(path.join(legacyDir, 'sessions.db'), 'not a sqlite database', 'utf-8');
-    const targetManager = new DatabaseManager(targetDir);
-
-    try {
-      await migrateThenSyncMarkdownMemories(targetManager, legacyDir, targetDir, undefined, agentRoot);
-
-      assert.equal(fs.existsSync(path.join(legacyDir, 'sessions.db')), false);
-      assert.deepStrictEqual(targetManager.getDb().pragma?.('quick_check'), [{ quick_check: 'ok' }]);
-      assert.equal(targetManager.getLastRecovery()?.strategy, 'recreated-empty');
-      assert.ok(
-        fs.readdirSync(targetDir).some((name) => name.startsWith('sessions.db.corrupt-')),
-        'the corrupt generation should be quarantined by DatabaseManager',
-      );
-    } finally {
-      targetManager.close();
-    }
-  });
-
-  it('resolves a migrated file-symlink database at first I/O', { skip: process.platform === 'win32' }, async () => {
-    dbManager.close();
-    const legacyDir = path.join(agentRoot, 'memory');
-    const targetDir = path.join(agentRoot, 'pi-hermes-memory');
-    const realDir = path.join(tmpDir, 'real-database');
-    const realDbPath = path.join(realDir, 'sessions.db');
-    fs.mkdirSync(legacyDir, { recursive: true });
-    fs.mkdirSync(realDir, { recursive: true });
-    fs.writeFileSync(realDbPath, 'not a sqlite database');
-    fs.symlinkSync(path.relative(legacyDir, realDbPath), path.join(legacyDir, 'sessions.db'), 'file');
-    const targetManager = new DatabaseManager(targetDir);
-
-    try {
-      await migrateThenSyncMarkdownMemories(targetManager, legacyDir, targetDir, undefined, agentRoot);
-      targetManager.getDb().prepare(
-        "INSERT INTO extension_metadata (key, value) VALUES ('migrated-alias', 'kept')",
-      ).run();
-      targetManager.close();
-
-      assert.equal(fs.lstatSync(path.join(targetDir, 'sessions.db')).isSymbolicLink(), true);
-      const directManager = new DatabaseManager(realDir);
-      try {
-        assert.deepEqual(
-          directManager.getDb().prepare(
-            "SELECT value FROM extension_metadata WHERE key = 'migrated-alias'",
-          ).get(),
-          { value: 'kept' },
-        );
-      } finally {
-        directManager.close();
-      }
-    } finally {
-      targetManager.close();
     }
   });
 
