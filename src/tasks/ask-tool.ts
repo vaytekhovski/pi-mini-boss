@@ -6,7 +6,7 @@
  * it also works while hidden).
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Key, matchesKey, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 const ASK_TOOL_NAME = "ask";
@@ -152,47 +152,58 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     if (cached) {
       return cached;
     }
-    const w = Math.max(1, width);
-    const lines: string[] = [];
+    const w = Math.max(14, width);
+    const innerW = Math.max(6, w - 4);
+    const accent = (s: string) => theme.fg("accent", s);
     const q = questions[tab];
-
-    // Header: title + current tab + progress.
-    const title = `pi-mini-boss · ${q.header || `Вопрос ${tab + 1}`}`;
-    const progress = questions.length > 1 ? `  ${tab + 1}/${questions.length}` : "";
-    lines.push(...wrapTextWithAnsi(theme.fg("accent", title) + theme.fg("dim", progress), w));
+    const body: string[] = [];
 
     if (questions.length > 1) {
       const tabs = questions.map((tq, i) =>
-        i === tab ? theme.fg("accent", `▸ ${tq.header || `Q${i + 1}`}`) : theme.fg("dim", `  ${tq.header || `Q${i + 1}`}`),
+        i === tab
+          ? theme.fg("accent", `▸ ${tq.header || `Q${i + 1}`}`)
+          : theme.fg("dim", `${tq.header || `Q${i + 1}`}`),
       );
-      lines.push(...wrapTextWithAnsi(tabs.join(theme.fg("dim", "  ")), w));
+      body.push(...wrapTextWithAnsi(tabs.join(theme.fg("dim", " · ")), innerW));
+      body.push("");
     }
 
-    lines.push(theme.fg("dim", "─".repeat(w)));
-    lines.push("");
-    lines.push(...wrapTextWithAnsi(theme.fg("text", q.question), w));
-    lines.push("");
+    body.push(...wrapTextWithAnsi(theme.fg("text", q.question), innerW));
+    body.push("");
 
     q.options.forEach((option, index) => {
       const isSelected = selected[tab].has(index);
       const marker = isSelected ? theme.fg("accent", q.multiSelect ? "◉" : "●") : theme.fg("dim", "○");
       const star = recommended[tab].has(index) ? ` ${theme.fg("warning", "★")}` : "";
       const label = isSelected ? theme.fg("accent", option.label) : theme.fg("text", option.label);
-      lines.push(...wrapTextWithAnsi(`${marker} ${index + 1}. ${label}${star}`, w));
+      body.push(...wrapTextWithAnsi(`${marker} ${index + 1}. ${label}${star}`, innerW));
       if (option.description) {
-        lines.push(...wrapTextWithAnsi(`    ${theme.fg("muted", option.description)}`, w));
+        body.push(...wrapTextWithAnsi(`   ${theme.fg("muted", option.description)}`, innerW));
       }
     });
 
-    lines.push("");
-    lines.push(theme.fg("dim", "─".repeat(w)));
-    lines.push(...wrapTextWithAnsi(theme.fg("dim", "1-9/Enter — выбрать · ↑↓/←→ — вопросы"), w));
-    lines.push(
+    body.push("");
+    body.push(...wrapTextWithAnsi(theme.fg("dim", "1-9/Enter — выбрать"), innerW));
+    body.push(...wrapTextWithAnsi(theme.fg("dim", "↑↓/←→ — вопросы"), innerW));
+    body.push(
       ...wrapTextWithAnsi(
         theme.fg("dim", `Ctrl+H — ${overlayHidden ? "показать" : "скрыть"} · Esc — отмена`),
-        w,
+        innerW,
       ),
     );
+
+    // Box with the title in the top border, like a window.
+    const title = `pi-mini-boss · ${q.header || `Вопрос ${tab + 1}`}${
+      questions.length > 1 ? ` · ${tab + 1}/${questions.length}` : ""
+    }`;
+    const label = ` ${title} `;
+    const fill = Math.max(0, w - 3 - visibleWidth(label));
+    const lines: string[] = [accent("╭─") + accent(label) + accent("─".repeat(fill)) + accent("╮")];
+    for (const line of body) {
+      const padding = " ".repeat(Math.max(0, innerW - visibleWidth(line)));
+      lines.push(`${accent("│")} ${line}${padding} ${accent("│")}`);
+    }
+    lines.push(accent(`╰${"─".repeat(w - 2)}╯`));
 
     cached = lines;
     return lines;
@@ -261,8 +272,8 @@ export function registerAskTool(pi: ExtensionAPI): void {
           overlay: true,
           overlayOptions: {
             anchor: "center",
-            minWidth: 34,
-            width: "48%",
+            minWidth: 30,
+            width: 44,
             margin: { top: 1, bottom: 1 },
           },
           onHandle: (h: HideHandle) => {
