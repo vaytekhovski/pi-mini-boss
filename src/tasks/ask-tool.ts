@@ -288,11 +288,11 @@ function createQuestionnaire(
       const isSelected = selected[qi].has(index);
       const marker = isSelected ? theme.fg("accent", q.multiSelect ? "◉" : "●") : theme.fg("dim", "○");
       const star = recommended[qi].has(index) ? ` ${theme.fg("warning", "★")}` : "";
-      const installed = option.installed ? ` ${theme.fg("success", "✓")}` : "";
+      const installedSlot = option.installed ? theme.fg("success", "✓") : " ";
       const label = isSelected ? theme.fg("accent", tr(option.label)) : theme.fg("text", tr(option.label));
       const desc = option.description ? ` ${theme.fg("muted", `— ${tr(option.description)}`)}` : "";
       const focus = index === cursor[qi] ? theme.fg("accent", "‣") : " ";
-      optionLines.push(...wrapTextWithAnsi(`${focus} ${marker} ${index + 1}. ${label}${installed}${star}${desc}`, innerW));
+      optionLines.push(...wrapTextWithAnsi(`${installedSlot} ${focus} ${marker} ${index + 1}. ${label}${star}${desc}`, innerW));
     });
     // The list is left-aligned as a block and centred horizontally as a whole.
     const widest = optionLines.length > 0 ? Math.max(...optionLines.map((line) => visibleWidth(line))) : 0;
