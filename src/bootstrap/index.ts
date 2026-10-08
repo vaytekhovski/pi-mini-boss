@@ -151,14 +151,20 @@ export function registerBootstrap(pi: ExtensionAPI): void {
     }
     recapPending = false;
     const language = configLanguage();
-    await pi.sendMessage({
-      customType: "pi-mini-boss:tour",
-      content: tourText(
-        language,
-        language === "en" ? "Reminder: what already works" : "Напоминание: что уже работает",
-      ),
-      display: true,
-    });
+    // agent_end fires while the session still streams; without an explicit
+    // triggerTurn:false Pi steers the message into the agent, which then
+    // restarts the onboarding windows. This message is informational only.
+    await pi.sendMessage(
+      {
+        customType: "pi-mini-boss:tour",
+        content: tourText(
+          language,
+          language === "en" ? "Reminder: what already works" : "Напоминание: что уже работает",
+        ),
+        display: true,
+      },
+      { triggerTurn: false },
+    );
   });
 
   pi.on("session_start", async (_event, ctx) => {
@@ -191,11 +197,10 @@ export function registerBootstrap(pi: ExtensionAPI): void {
       // The feature tour goes to the transcript first; the onboarding prompt is a
       // hidden custom message, so the long instructions never show up there.
       recapPending = true;
-      await pi.sendMessage({
-        customType: "pi-mini-boss:tour",
-        content: tourText(configLanguage()),
-        display: true,
-      });
+      await pi.sendMessage(
+        { customType: "pi-mini-boss:tour", content: tourText(configLanguage()), display: true },
+        { triggerTurn: false },
+      );
       // Hidden custom message: the model gets the instructions and a turn starts,
       // but the long prompt never appears in the transcript.
       await pi.sendMessage(
