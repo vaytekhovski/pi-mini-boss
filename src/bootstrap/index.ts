@@ -99,7 +99,12 @@ export function registerBootstrap(pi: ExtensionAPI): void {
     description: "Настроить pi-mini-boss: роль, назначение, язык, расширения",
     handler: async (_args, ctx) => {
       await ctx.waitForIdle();
-      pi.sendUserMessage(buildOnboardPrompt());
+      // Hidden custom message: the model gets the instructions and a turn starts,
+      // but the long prompt never appears in the transcript.
+      await pi.sendMessage(
+        { customType: "pi-mini-boss:onboard", content: buildOnboardPrompt(), display: false },
+        { triggerTurn: true },
+      );
     },
   });
 
