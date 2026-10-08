@@ -30,39 +30,52 @@ base_behavior:
 required_extensions: []
 
 # Предлагается установить, с объяснением «зачем».
+# Рекомендуемые и опциональные расширения. `group` → отдельная вкладка в онбординге;
+# `selected: false` = опциональное (без галочки по умолчанию).
 recommended_extensions:
-  - name: pi-subagents
-    why: "делегирование и параллельные субагенты"
-  - name: ponytail
-    why: "лаконичный режим, меньше токенов"
-  - name: pi-web-access
-    why: "доступ в интернет (web_search, fetch_content)"
-  - name: billion-context-pi
-    why: "сжатие контекста, длинные сессии"
-  - name: pi-background-tasks
-    why: "долгие команды в фоне"
-  - name: pi-goal-x
-    why: "постоянные цели агента"
+  # Ядро
+  - { name: pi-subagents, why: "делегирование и параллельные субагенты", group: Ядро }
+  - { name: ponytail, why: "лаконичный режим, меньше токенов", group: Ядро }
+  - { name: pi-web-access, why: "доступ в интернет (web_search, fetch_content)", group: Ядро }
+  - { name: billion-context-pi, why: "сжатие контекста, длинные сессии", group: Ядро }
+  - { name: pi-background-tasks, why: "долгие команды в фоне", group: Ядро }
+  - { name: pi-goal-x, why: "постоянные цели агента", group: Ядро }
 
-  # Опциональные (НЕ предвыбраны; можно отметить галочкой в онбординге):
-  - name: pi-cache-optimizer
-    why: "кэш промптов и статистика в футере"
-    selected: false
-  - name: "@ff-labs/pi-fff"
-    why: "быстрый нечёткий поиск по файлам и содержимому"
-    selected: false
-  - name: pi-posthorse
-    why: "смена контекста без суммаризации (handoffs, заметки)"
-    selected: false
-  - name: "@narumitw/pi-plan-mode"
-    why: "read-only режим планирования"
-    selected: false
-  - name: pi-simplify
-    why: "ревью свежих правок на ясность"
-    selected: false
-  - name: cc-safety-net
-    why: "блокировка разрушительных команд и доступа к секретам"
-    selected: false
+  # Контекст и сессии
+  - { name: pi-cache-optimizer, why: "кэш промптов и статистика в футере", group: Контекст, selected: false }
+  - { name: pi-posthorse, why: "смена контекста без суммаризации", group: Контекст, selected: false }
+  - { name: context-mode, why: "песочница + FTS5-база знаний", group: Контекст, selected: false }
+  - { name: "@moyai/pi-session-hoarder", why: "архивация сессий", group: Контекст, selected: false }
+  - { name: pi-btw, why: "побочные вопросы в стороне", group: Контекст, selected: false }
+
+  # Качество
+  - { name: pi-simplify, why: "ревью свежих правок на ясность", group: Качество, selected: false }
+  - { name: "@plannotator/pi-extension", why: "ревью плана и PR с аннотациями", group: Качество, selected: false }
+  - { name: pi-lens, why: "LSP/линтеры (может давать ложные ошибки)", group: Качество, selected: false }
+
+  # Безопасность
+  - { name: cc-safety-net, why: "блокировка разрушительных команд и секретов", group: Безопасность, selected: false }
+  - { name: "@gotgenes/pi-permission-system", why: "система прав и подтверждений", group: Безопасность, selected: false }
+
+  # UI
+  - { name: "@narumitw/pi-plan-mode", why: "read-only режим планирования", group: UI, selected: false }
+  - { name: pi-powerline-footer, why: "powerline-статусбар", group: UI, selected: false }
+  - { name: pi-autosuggestions, why: "ghost-подсказки в редакторе", group: UI, selected: false }
+
+  # Поиск и интеграции
+  - { name: "@ff-labs/pi-fff", why: "быстрый нечёткий поиск", group: Поиск, selected: false }
+  - { name: pi-web-search, why: "нативный поиск провайдера", group: Поиск, selected: false }
+  - { name: pi-mcp-adapter, why: "подключение MCP-серверов", group: Поиск, selected: false }
+
+  # Наблюдаемость
+  - { name: "@langfuse/pi-observability-plugin", why: "трейсинг в Langfuse", group: Наблюдаемость, selected: false }
+  - { name: "@langchain/langsmith-pi-extension", why: "трейсинг в LangSmith", group: Наблюдаемость, selected: false }
+  - { name: "@raindrop-ai/pi-agent", why: "трейсинг в Raindrop", group: Наблюдаемость, selected: false }
+
+  # Делегирование
+  - { name: "@tintinweb/pi-subagents", why: "субагенты «как в Claude Code»", group: Делегирование, selected: false }
+  - { name: pi-advisor-flow, why: "схема Исполнитель/Советник", group: Делегирование, selected: false }
+  - { name: "@akagilnc/pi-workflow-roles", why: "роли под workflow", group: Делегирование, selected: false }
 
 # Порядок ведения задачи.
 workflow:

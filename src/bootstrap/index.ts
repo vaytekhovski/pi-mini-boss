@@ -69,14 +69,35 @@ function buildOnboardPrompt(): string {
     roles.length > 0 ? roles : [{ slug: "senior backend developer", description: "бэкенд, API, сервисы" }];
   const purposeOptions =
     purposes.length > 0 ? purposes : [{ slug: "веб-приложение / SaaS", description: "продукт для пользователей" }];
-  const extensionLines =
-    extensions.length > 0
-      ? extensions.map((ext, index) => {
-          const selected = ext.selected === false ? "" : ", selected:true";
-          const tail = index === extensions.length - 1 ? " ]} ]" : ",";
-          return `    {label:"${ext.name}", description:"${ext.why}"${selected}}${tail}`;
-        })
-      : ['    {label:"ponytail", description:"лаконичный режим", selected:true} ]} ]'];
+  const extensionLines: string[] = [];
+  if (extensions.length > 0) {
+    // One question (tab) per `group`, in first-seen order.
+    const groups: string[] = [];
+    const byGroup = new Map<string, typeof extensions>();
+    for (const ext of extensions) {
+      const group = ext.group ?? "Дополнительно";
+      if (!byGroup.has(group)) {
+        byGroup.set(group, []);
+        groups.push(group);
+      }
+      byGroup.get(group)!.push(ext);
+    }
+    groups.forEach((group, gi) => {
+      const items = byGroup.get(group) ?? [];
+      extensionLines.push(`  {question:"${group}", header:"${group}", multiSelect:true, options:[`);
+      items.forEach((ext, index) => {
+        const selected = ext.selected === false ? "" : ", selected:true";
+        const tail = index === items.length - 1 ? " ]}" : ",";
+        extensionLines.push(`    {label:"${ext.name}", description:"${ext.why}"${selected}}${tail}`);
+      });
+      extensionLines[extensionLines.length - 1] += gi === groups.length - 1 ? " ]" : ",";
+    });
+  } else {
+    extensionLines.push(
+      '  {question:"Дополнительно", header:"Дополнительно", multiSelect:true, options:[',
+      '    {label:"ponytail", description:"лаконичный режим", selected:true} ]} ]',
+    );
+  }
   return [
     "Онбординг pi-mini-boss. Он идёт ТРЕМЯ отдельными окнами: окно закрывается — сразу открывается следующее.",
     "ВАЖНО: не исследуй файловую систему, не запускай команды, не ищи и не загружай скиллы — никаких ls/pwd/grep/skill_manage.",
@@ -102,9 +123,8 @@ function buildOnboardPrompt(): string {
     ),
     "Подтверди на «Итоге».",
     "",
-    "Окно 3 — РАСШИРЕНИЯ. Третий вызов `ask` с locale=LANG:",
+    "Окно 3 — РАСШИРЕНИЯ по вкладкам-категориям. Третий вызов `ask` с locale=LANG:",
     "ask locale=LANG questions=[",
-    '  {question:"Какие расширения установить?", header:"Расширения", multiSelect:true, options:[',
     ...extensionLines,
     "Подтверди на «Итоге».",
     "",
