@@ -81,7 +81,7 @@ const TOUR = {
       "- **Панель вопросов** — инструмент `ask`: оверлей с вкладками, мультивыбором и живым переключением языка (это то, что откроется сейчас).",
       "- **Роли и назначения** — профиль агента: поведение и язык, при желании — модель, уровень thinking и набор активных инструментов.",
       "- **Процесс работы** — скилл `workflow`: план → работа → проверка → закрытие; статус задачи обновляется в том же шаге.",
-      "- **Команды** — `/onboard` (настройка), `/extensions` (добавить или отключить расширения), `/clear` (очистить окно).",
+      "- **Команды** — `/onboard` (настройка), `/extensions` (добавить или отключить расширения), `/dashboard` (веб-доска задач), `/memory-pin` (правила навсегда).",
       "",
       "_Дальше — три окна настройки: язык → роль → расширения._",
     ].join("\n"),
@@ -94,7 +94,7 @@ const TOUR = {
       "- **Question panel** — the `ask` tool: an overlay with tabs, multi-select and live language switching (this is what opens next).",
       "- **Roles and purposes** — an agent profile: behaviour and language, optionally the model, thinking level and active tool set.",
       "- **Working process** — the `workflow` skill: plan → do → verify → close; task status updates in the same step.",
-      "- **Commands** — `/onboard` (this setup), `/extensions` (add or switch off extensions), `/clear` (clear the window).",
+      "- **Commands** — `/onboard` (setup), `/extensions` (add or switch off extensions), `/dashboard` (task web board), `/memory-pin` (permanent rules).",
       "",
       "_Next: three windows of setup — language → role → extensions._",
     ].join("\n"),
@@ -258,26 +258,6 @@ export function registerBootstrap(pi: ExtensionAPI): void {
           : `pi-mini-boss: выбрано ${selected.length} · добавил ${added.length} · снял ${removed.length} — перезапусти Pi (или \`pi update --extensions\`)`,
         "info",
       );
-    },
-  });
-
-  pi.registerCommand("clear", {
-    description: "Очистить окно вывода",
-    handler: async (_args, ctx) => {
-      if (!ctx.hasUI) {
-        return;
-      }
-      await ctx.ui.custom<void>((tui, _theme, _kb, done) => {
-        done(undefined);
-        // clearScreen writes ANSI directly, so the renderer's cursor state goes
-        // stale — force a full repaint right after, or Pi is left on a black screen.
-        // `renderNow` exists only in newer pi-tui; requestRender(true) covers the
-        // 0.80 typed surface the package builds against.
-        tui.terminal.clearScreen();
-        (tui as unknown as { renderNow?: (force?: boolean) => void }).renderNow?.(true);
-        tui.requestRender(true);
-        return { render: (): string[] => [], invalidate: (): void => {} };
-      });
     },
   });
 }
