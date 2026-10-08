@@ -42,7 +42,7 @@ recommended_extensions:
   - { name: "@moyai/pi-session-hoarder", why: "хранение и поиск прошлых сессий", group: Контекст, selected: false }
   - { name: pi-btw, why: "побочные вопросы в стороне", group: Контекст, selected: false }
   - { name: pi-blackhole, why: "компакция + наблюдательная память", group: Контекст, selected: false }
-  - { name: pi-context-view, why: "визуализация расхода контекста и скрытого промпта", group: Контекст, selected: false }
+  - { name: pi-context-view, why: "визуализация расхода контекста и скрытого промпта", group: Контекст }
   - { name: pi-observational-memory, why: "многоуровневая компакция с наблюдениями", group: Контекст, selected: false }
   - { name: om-memory-system, why: "модульная система памяти агента", group: Контекст, selected: false }
   - { name: "@llblab/pi-state-flow", why: "инкрементальный компилятор состояния и памяти", group: Контекст, selected: false }
@@ -84,7 +84,7 @@ recommended_extensions:
   - { name: pi-cc-extensions, why: "TUI в стиле Claude Code", group: UI, selected: false }
   - { name: pi-open-tui, why: "анимированный логотип, Starship-футер, скругления", group: UI, selected: false }
   - { name: pi-zentui, why: "модульные компоненты интерфейса", group: UI, selected: false }
-  - { name: pi-pigment, why: "подсветка диффов и команд в цветах темы", group: UI, selected: false }
+  - { name: pi-pigment, why: "подсветка диффов и команд в цветах темы", group: UI }
   - { name: pi-compact-tools, why: "компактные строки инструментов (Claude/Codex стиль)", group: UI, selected: false }
   - { name: "@reedchan/statusline", why: "двухстрочный статус: контекст, кэш, стоимость, скорость", group: UI, selected: false }
   - { name: "@narumitw/pi-stamp", why: "тайминги транскрипта и инструментов", group: UI, selected: false }
