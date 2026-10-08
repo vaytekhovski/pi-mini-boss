@@ -240,7 +240,8 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       return cached;
     }
     const w = Math.max(14, width);
-    const innerW = Math.max(6, w - 4);
+    const SIDE_PAD = 2;
+    const innerW = Math.max(6, w - 2 - SIDE_PAD * 2);
     const accent = (s: string) => theme.fg("accent", s);
 
     // Fixed height: measure every question and pad the shown one, so switching
@@ -296,7 +297,10 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       const pad = Math.max(0, innerW - visibleWidth(line));
       const before = Math.floor(pad / 2);
       const after = pad - before;
-      lines.push(`${accent("│")} ${" ".repeat(before)}${line}${" ".repeat(after)} ${accent("│")}`);
+      const gutter = " ".repeat(SIDE_PAD);
+      lines.push(
+        `${accent("│")}${gutter}${" ".repeat(before)}${line}${" ".repeat(after)}${gutter}${accent("│")}`,
+      );
     }
     lines.push(border("╰", "╯", theme.fg("accent", ` ${controls} `)));
 
