@@ -35,7 +35,7 @@ required_extensions: []
 recommended_extensions:
   # Контекст и сессии
   - { name: billion-context-pi, why: "сжатие контекста, длинные сессии", group: Контекст }
-  - { name: pi-cache-optimizer, why: "кэш промптов и статистика в футере", group: Контекст, selected: false }
+  - { name: pi-cache-optimizer, why: "кэш промптов и статистика в футере", group: Контекст }
   - { name: pi-posthorse, why: "смена контекста без суммаризации", group: Контекст, selected: false }
   - { name: context-mode, why: "песочница + FTS5-база знаний", group: Контекст, selected: false }
   - { name: "@moyai/pi-session-hoarder", why: "архивация сессий", group: Контекст, selected: false }
@@ -43,12 +43,12 @@ recommended_extensions:
 
   # Качество
   - { name: ponytail, why: "лаконичный режим, меньше токенов", group: Качество }
-  - { name: pi-simplify, why: "ревью свежих правок на ясность", group: Качество, selected: false }
+  - { name: pi-simplify, why: "ревью свежих правок на ясность", group: Качество }
   - { name: "@plannotator/pi-extension", why: "ревью плана и PR с аннотациями", group: Качество, selected: false }
   - { name: pi-lens, why: "LSP/линтеры (может давать ложные ошибки)", group: Качество, selected: false }
 
   # Безопасность
-  - { name: cc-safety-net, why: "блокировка разрушительных команд и секретов", group: Безопасность, selected: false }
+  - { name: cc-safety-net, why: "блокировка разрушительных команд и секретов", group: Безопасность }
   - { name: "@gotgenes/pi-permission-system", why: "система прав и подтверждений", group: Безопасность, selected: false }
 
   # Планирование
