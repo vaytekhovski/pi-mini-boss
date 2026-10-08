@@ -202,12 +202,16 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
         const labels = [...selected[i]].sort((a, b) => a - b).map((index) => q.options[index].label);
         const label = `${q.header || `Вопрос ${i + 1}`}:`;
         const value = labels.length > 0 ? labels.join(", ") : "(не выбрано)";
-        // The label ends (its colon) at the centre; the value starts there.
+        // The label ends (its colon) at the centre; the value starts there and wraps.
         const left = " ".repeat(Math.max(0, half - label.length)) + theme.fg("muted", label);
-        const room = Math.max(0, innerW - half);
-        const text = value.length > room ? value.slice(0, room) : value;
-        const line = left + text;
-        middle.push(line + " ".repeat(Math.max(0, innerW - visibleWidth(line))));
+        const room = Math.max(1, innerW - half);
+        const valueLines = wrapTextWithAnsi(value, room);
+        const first = left + (valueLines[0] ?? "");
+        middle.push(first + " ".repeat(Math.max(0, innerW - visibleWidth(first))));
+        for (const continuation of valueLines.slice(1)) {
+          const line = " ".repeat(half) + continuation;
+          middle.push(line + " ".repeat(Math.max(0, innerW - visibleWidth(line))));
+        }
       });
       return { top, middle, bottom };
     }
