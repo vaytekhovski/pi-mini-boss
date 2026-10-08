@@ -266,7 +266,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     const controls =
       tab === REVIEW
         ? "Enter — подтвердить · ←/→ — изменить"
-        : `1-9/Enter/←→ — выбрать · ↑↓ — варианты · Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`;
+        : `1-9/Enter — выбрать · ←→/↑↓ — навигация · Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`;
     // Border with the label centred between the corners.
     const border = (left: string, right: string, label: string): string => {
       const inner = Math.max(1, w - 2);
