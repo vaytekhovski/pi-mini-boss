@@ -213,9 +213,9 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     }
 
     const q = questions[qi];
-    const block: string[] = [];
-    block.push(...wrapTextWithAnsi(theme.fg("text", q.question), innerW));
-    block.push("");
+    middle.push(...wrapTextWithAnsi(theme.fg("text", q.question), innerW));
+    middle.push("");
+    const optionLines: string[] = [];
     q.options.forEach((option, index) => {
       const isSelected = selected[qi].has(index);
       const marker = isSelected ? theme.fg("accent", q.multiSelect ? "◉" : "●") : theme.fg("dim", "○");
@@ -223,12 +223,12 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       const label = isSelected ? theme.fg("accent", option.label) : theme.fg("text", option.label);
       const desc = option.description ? ` ${theme.fg("muted", `— ${option.description}`)}` : "";
       const focus = index === cursor[qi] ? theme.fg("accent", "‣") : " ";
-      block.push(...wrapTextWithAnsi(`${focus} ${marker} ${index + 1}. ${label}${star}${desc}`, innerW));
+      optionLines.push(...wrapTextWithAnsi(`${focus} ${marker} ${index + 1}. ${label}${star}${desc}`, innerW));
     });
-    // Question and options share one left-aligned block, centred as a whole.
-    const widest = block.length > 0 ? Math.max(...block.map((line) => visibleWidth(line))) : 0;
+    // The list is left-aligned as a block and centred horizontally as a whole.
+    const widest = optionLines.length > 0 ? Math.max(...optionLines.map((line) => visibleWidth(line))) : 0;
     const indent = Math.max(0, Math.floor((innerW - widest) / 2));
-    for (const line of block) {
+    for (const line of optionLines) {
       const padded = " ".repeat(indent) + line;
       middle.push(padded + " ".repeat(Math.max(0, innerW - visibleWidth(padded))));
     }
@@ -266,7 +266,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     const controls =
       tab === REVIEW
         ? "Enter — подтвердить · ←/→ — изменить"
-        : `1-9/Enter — выбрать · ↑↓ — варианты · ←/→ — вопросы · Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`;
+        : `1-9/Enter/←→ — выбрать · ↑↓ — варианты · Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`;
     // Border with the label centred between the corners.
     const border = (left: string, right: string, label: string): string => {
       const inner = Math.max(1, w - 2);
