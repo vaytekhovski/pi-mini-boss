@@ -44,6 +44,26 @@ recommended_extensions:
   - name: pi-goal-x
     why: "постоянные цели агента"
 
+  # Опциональные (НЕ предвыбраны; можно отметить галочкой в онбординге):
+  - name: pi-cache-optimizer
+    why: "кэш промптов и статистика в футере"
+    selected: false
+  - name: "@ff-labs/pi-fff"
+    why: "быстрый нечёткий поиск по файлам и содержимому"
+    selected: false
+  - name: pi-posthorse
+    why: "смена контекста без суммаризации (handoffs, заметки)"
+    selected: false
+  - name: "@narumitw/pi-plan-mode"
+    why: "read-only режим планирования"
+    selected: false
+  - name: pi-simplify
+    why: "ревью свежих правок на ясность"
+    selected: false
+  - name: cc-safety-net
+    why: "блокировка разрушительных команд и доступа к секретам"
+    selected: false
+
 # Порядок ведения задачи.
 workflow:
   - plan

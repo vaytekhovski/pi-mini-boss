@@ -64,16 +64,32 @@ function listImplemented(kind: string): Array<{ slug: string; description: strin
 function buildOnboardPrompt(): string {
   const roles = listImplemented("roles");
   const purposes = listImplemented("purposes");
+  const extensions = loadAgentConfig().recommended_extensions ?? [];
   const roleOptions =
     roles.length > 0 ? roles : [{ slug: "senior backend developer", description: "бэкенд, API, сервисы" }];
   const purposeOptions =
     purposes.length > 0 ? purposes : [{ slug: "веб-приложение / SaaS", description: "продукт для пользователей" }];
+  const extensionLines =
+    extensions.length > 0
+      ? extensions.map((ext, index) => {
+          const selected = ext.selected === false ? "" : ", selected:true";
+          const tail = index === extensions.length - 1 ? " ]} ]" : ",";
+          return `    {label:"${ext.name}", description:"${ext.why}"${selected}}${tail}`;
+        })
+      : ['    {label:"ponytail", description:"лаконичный режим", selected:true} ]} ]'];
   return [
-    "Онбординг pi-mini-boss.",
+    "Онбординг pi-mini-boss. Он идёт ТРЕМЯ отдельными окнами: окно закрывается — сразу открывается следующее.",
     "ВАЖНО: не исследуй файловую систему, не запускай команды, не ищи и не загружай скиллы — никаких ls/pwd/grep/skill_manage.",
     "",
-    "Шаг 1. Одним вызовом tool `ask` задай все 4 вопроса (параметр `questions` — массив; в панели они станут вкладками, ←/→ переключение). Никаких отдельных вызовов:",
-    'ask questions=[',
+    'Окно 1 — ЯЗЫК. Одним вызовом `ask` (locale="ru"), вопрос с флагом uiLanguage:true — панель переключит язык сама:',
+    'ask locale="ru" questions=[',
+    '  {question:"Язык общения?", header:"Язык", uiLanguage:true, options:[',
+    '    {label:"ru", description:"русский", selected:true},',
+    '    {label:"en", description:"English"} ]} ]',
+    "Подтверди на вкладке «Итог» (Enter). Запомни выбранный язык как LANG.",
+    "",
+    "Окно 2 — РОЛЬ и НАЗНАЧЕНИЕ. Второй вызов `ask` с locale=LANG:",
+    "ask locale=LANG questions=[",
     '  {question:"Кто ты?", header:"Роль", options:[',
     ...roleOptions.map(
       (role, index) =>
@@ -82,28 +98,25 @@ function buildOnboardPrompt(): string {
     '  {question:"Над чем ты работаешь?", header:"Назначение", options:[',
     ...purposeOptions.map(
       (purpose, index) =>
-        `    {label:"${purpose.slug}", description:"${purpose.description}"${index === 0 ? ", selected:true" : ""}}${index === purposeOptions.length - 1 ? " ]}," : ","}`,
+        `    {label:"${purpose.slug}", description:"${purpose.description}"${index === 0 ? ", selected:true" : ""}}${index === purposeOptions.length - 1 ? " ]} ]" : ","}`,
     ),
-    '  {question:"Язык общения?", header:"Язык", options:[',
-    '    {label:"ru", description:"русский", selected:true},',
-    '    {label:"en", description:"English"} ]},',
+    "Подтверди на «Итоге».",
+    "",
+    "Окно 3 — РАСШИРЕНИЯ. Третий вызов `ask` с locale=LANG:",
+    "ask locale=LANG questions=[",
     '  {question:"Какие расширения установить?", header:"Расширения", multiSelect:true, options:[',
-    '    {label:"pi-subagents", description:"делегирование и субагенты", selected:true},',
-    '    {label:"ponytail", description:"лаконичный режим, меньше токенов", selected:true},',
-    '    {label:"pi-web-access", description:"доступ в интернет", selected:true},',
-    '    {label:"billion-context-pi", description:"сжатие контекста, длинные сессии", selected:true},',
-    '    {label:"pi-background-tasks", description:"долгие команды в фоне", selected:true},',
-    '    {label:"pi-goal-x", description:"постоянные цели агента", selected:true} ]} ]',
+    ...extensionLines,
+    "Подтверди на «Итоге».",
     "",
-    "Если пользователь ОТМЕНИЛ вопросы (Esc) — НЕ задавай их в чате. Напиши одну короткую дружелюбную фразу: онбординг можно запустить позже командой /onboard, а настроенный агент понимает контекст проекта и работает точнее. Больше ничего не делай.",
+    "Если пользователь ОТМЕНИЛ любое окно (Esc) — НЕ задавай вопросы в чате. Напиши коротко: онбординг можно запустить позже командой /onboard. Больше ничего не делай.",
     "",
-    `Шаг 2. Прочитай шаблон ${DEFAULT_CONFIG_PATH} (это файл по абсолютному пути — не ищи его) и запиши ${USER_CONFIG_PATH}:`,
-    "   - role.name / role.purpose / role.language ← из ответов;",
+    `Шаг 4. Прочитай шаблон ${DEFAULT_CONFIG_PATH} (это файл по абсолютному пути — не ищи его) и запиши ${USER_CONFIG_PATH}:`,
+    "   - role.name / role.purpose / role.language ← из окон 2 и 1 (language = LANG);",
     "   - base_behavior / workflow / thinking / required_extensions ← как в шаблоне;",
-    '   - recommended_extensions ← отмеченные в ответе 4 (label → name, description → why);',
+    "   - recommended_extensions ← отмеченные в окне 3 (label → name, description → why);",
     "   - добавь onboarded: true.",
     "",
-    "Шаг 3. Ответь одной короткой строкой, как настроен агент. Больше ничего не делай.",
+    "Шаг 5. Ответь одной короткой строкой, как настроен агент. Больше ничего не делай.",
   ].join("\n");
 }
 

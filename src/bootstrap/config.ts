@@ -23,6 +23,8 @@ export const USER_CONFIG_PATH = path.join(AGENT_ROOT, "pi-mini-boss", "agent.yam
 export interface RecommendedExtension {
   name: string;
   why: string;
+  /** Pre-selected in onboarding; false makes it an optional choice. */
+  selected?: boolean;
 }
 
 /** The `role` block — the part a user is expected to change. */
