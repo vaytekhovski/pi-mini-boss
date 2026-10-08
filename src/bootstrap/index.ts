@@ -5,7 +5,13 @@
  *   • exposes /onboard to (re)configure.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { loadAgentConfig, needsOnboarding, type AgentConfig } from "./config.js";
+import {
+  DEFAULT_CONFIG_PATH,
+  USER_CONFIG_PATH,
+  loadAgentConfig,
+  needsOnboarding,
+  type AgentConfig,
+} from "./config.js";
 import { checkExtensions } from "./extension-check.js";
 
 /** Render the role + core rules + workflow as a system-prompt section. */
@@ -25,11 +31,45 @@ function buildSystemPromptBlock(config: AgentConfig): string {
   return lines.join("\n");
 }
 
-const ONBOARD_PROMPT =
-  "Выполни онбординг pi-mini-boss по скиллу bootstrap: прочитай config/agent.yaml (ядро), " +
-  "задай пользователю вопросы одним вызовом ask_user_question (роль, назначение, язык, какие " +
-  "recommended_extensions ставить), затем запиши ~/.pi/agent/pi-mini-boss/agent.yaml с ответами " +
-  "и onboarded: true, сверь required_extensions и коротко подтверди конфигурацию.";
+/**
+ * Self-contained onboarding prompt. It spells out the questions and gives the
+ * agent absolute paths, so it never has to explore the filesystem or look up a
+ * skill (that exploration was the old noisy behaviour).
+ */
+function buildOnboardPrompt(): string {
+  return [
+    "Онбординг pi-mini-boss.",
+    "ВАЖНО: не исследуй файловую систему, не запускай команды, не ищи и не загружай скиллы — никаких ls/pwd/grep. Сразу вопросы, затем один read и один write.",
+    "",
+    "Шаг 1. Одним вызовом ask_user_question задай эти 4 вопроса:",
+    '1) header "Роль", question "Кто ты?", single (2–4 опции):',
+    '   - "senior backend developer (Recommended)" — бэкенд, API, сервисы',
+    '   - "frontend developer" — интерфейсы, вёрстка, UX',
+    '   - "fullstack developer" — и бэкенд, и фронтенд',
+    '   - "testing / QA engineer" — тесты, качество, автоматизация',
+    '2) header "Назначение", question "Над чем ты работаешь?", single:',
+    '   - "веб-приложение / SaaS (Recommended)" — продукт для пользователей',
+    '   - "бэкенд, API и сервисы" — серверная логика и интеграции',
+    '   - "мобильное приложение" — iOS/Android/кроссплатформа',
+    '   - "данные, аналитика, ML" — пайплайны, отчёты, модели',
+    '3) header "Язык", question "Язык общения?", single:',
+    '   - "ru (Recommended)" — русский',
+    '   - "en" — English',
+    '4) header "Расширения", question "Какие рекомендованные расширения НЕ устанавливать? (по умолчанию — оставляем все; отметь только лишние)", multiSelect: true:',
+    '   - "pi-subagents" — делегирование и параллельные субагенты',
+    '   - "ponytail" — лаконичный режим, меньше токенов',
+    '   - "pi-web-access" — доступ в интернет',
+    '   - "billion-context-pi" — сжатие контекста, длинные сессии',
+    "",
+    `Шаг 2. Прочитай шаблон ${DEFAULT_CONFIG_PATH} (это файл по абсолютному пути — не ищи его) и запиши ${USER_CONFIG_PATH}:`,
+    "   - role.name / role.purpose / role.language ← из ответов;",
+    "   - base_behavior / workflow / thinking / required_extensions ← как в шаблоне;",
+    '   - recommended_extensions ← как в шаблоне, минус те, что отмечены «не ставить»;',
+    "   - добавь onboarded: true.",
+    "",
+    "Шаг 3. Ответь одной короткой строкой, как настроен агент. Больше ничего не делай.",
+  ].join("\n");
+}
 
 /** Register the bootstrap lifecycle hooks and the /onboard command. */
 export function registerBootstrap(pi: ExtensionAPI): void {
@@ -59,7 +99,7 @@ export function registerBootstrap(pi: ExtensionAPI): void {
     description: "Настроить pi-mini-boss: роль, назначение, язык, расширения",
     handler: async (_args, ctx) => {
       await ctx.waitForIdle();
-      pi.sendUserMessage(ONBOARD_PROMPT);
+      pi.sendUserMessage(buildOnboardPrompt());
     },
   });
 }
