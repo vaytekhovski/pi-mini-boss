@@ -1,6 +1,7 @@
 ---
 name: purpose-role-authoring
 description: "Создание ролей — проектировать и писать роли pi-mini-boss."
+description_en: "Role authoring — design and write pi-mini-boss roles."
 ---
 
 # Назначение: создание ролей

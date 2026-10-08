@@ -1,6 +1,7 @@
 ---
 name: role-regular-user
 description: "Обычный пользователь — общие задачи без узкой специализации."
+description_en: "Regular user — general tasks with no narrow specialisation."
 ---
 
 # Роль: обычный пользователь

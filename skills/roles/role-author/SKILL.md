@@ -1,6 +1,7 @@
 ---
 name: role-author
 description: "Создавать и дополнять роли pi-mini-boss."
+description_en: "Create and extend pi-mini-boss roles."
 ---
 
 # Автор ролей pi-mini-boss
@@ -10,8 +11,8 @@ description: "Создавать и дополнять роли pi-mini-boss."
 ## Процесс
 
 1. Уточни у пользователя одним вызовом `ask`: специальность; ключевые задачи; что критично проверять; нужны ли особые `model`/`thinking`/`tools`.
-2. Создай `skills/roles/<slug>/SKILL.md` по структуре ниже (slug латиницей, `name: role-<slug>`).
-3. Если роль должна появляться при настройке — добавь её в список ролей онбординга (`src/bootstrap/index.ts` → `buildOnboardPrompt`).
+2. Создай `skills/roles/<slug>/SKILL.md` по структуре ниже (slug латиницей, `name: role-<slug>`). У заглушки есть строка `disable-model-invocation: true` — убери её, иначе роль останется скрытой.
+3. Регистрировать ничего не нужно: онбординг сам находит все роли из `skills/roles/*/SKILL.md` без этой строки. Заполни `description` (русский) и `description_en` (английский) — оба показываются в окне выбора, второе нужно, когда язык — английский.
 4. Подтверди коротко и покажи, как активировать: `agent.yaml` → `role.name` (+ опционально `role.model` / `role.thinking` / `role.tools`).
 
 ## Структура файла роли
@@ -20,6 +21,7 @@ description: "Создавать и дополнять роли pi-mini-boss."
 ---
 name: role-<slug>
 description: "<Специальность> — <фокус>. Use when the active pi-mini-boss role is <специальность>."
+description_en: "<Speciality> — <focus>. Use when the active pi-mini-boss role is <speciality>."
 ---
 
 # Роль: <специальность>

@@ -1,6 +1,7 @@
 ---
 name: purpose-general
 description: "Обычное использование — разноплановые задачи без одной темы."
+description_en: "Everyday use — varied tasks with no single theme."
 ---
 
 # Назначение: обычное использование

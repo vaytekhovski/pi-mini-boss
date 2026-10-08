@@ -25,13 +25,24 @@ export interface AskQuestion {
   options: AskOption[];
 }
 
-/** Skills implemented in a `skills/<kind>/` directory; stubs carry `disable-model-invocation: true`. */
-function listImplemented(kind: string): Array<{ slug: string; description: string }> {
+/** A description in both supported languages. */
+export interface LocalizedText {
+  ru: string;
+  en: string;
+  [language: string]: string;
+}
+
+/**
+ * Skills implemented in a `skills/<kind>/` directory; stubs carry
+ * `disable-model-invocation: true`. `description_en` is our own optional
+ * frontmatter key — without it the Russian description is reused.
+ */
+function listImplemented(kind: string): Array<{ slug: string; description: LocalizedText }> {
   const dir = path.join(PACKAGE_ROOT, "skills", kind);
   if (!fs.existsSync(dir)) {
     return [];
   }
-  const items: Array<{ slug: string; description: string }> = [];
+  const items: Array<{ slug: string; description: LocalizedText }> = [];
   for (const slug of fs.readdirSync(dir)) {
     const file = path.join(dir, slug, "SKILL.md");
     if (!fs.existsSync(file)) {
@@ -41,8 +52,10 @@ function listImplemented(kind: string): Array<{ slug: string; description: strin
     if (/^disable-model-invocation:\s*true\s*$/m.test(text)) {
       continue;
     }
-    const description = /^description:\s*"?([^"\n]+?)"?\s*$/m.exec(text)?.[1]?.trim() ?? slug;
-    items.push({ slug, description });
+    const read = (key: string): string | undefined =>
+      new RegExp(`^${key}:\\s*"?([^"\\n]+?)"?\\s*$`, "m").exec(text)?.[1]?.trim();
+    const ru = read("description") ?? slug;
+    items.push({ slug, description: { ru, en: read("description_en") ?? ru } });
   }
   return items.sort((a, b) => a.slug.localeCompare(b.slug));
 }
@@ -64,19 +77,27 @@ export function languageQuestion(): AskQuestion {
 export function roleQuestions(): AskQuestion[] {
   const roles = listImplemented("roles");
   const purposes = listImplemented("purposes");
-  const fallbackRole = [{ slug: "senior backend developer", description: "бэкенд, API, сервисы" }];
-  const fallbackPurpose = [{ slug: "веб-приложение / SaaS", description: "продукт для пользователей" }];
-  const toOptions = (items: Array<{ slug: string; description: string }>): AskOption[] =>
+  const fallbackRole = [
+    { slug: "senior backend developer", description: { ru: "бэкенд, API, сервисы", en: "backend, API, services" } },
+  ];
+  const fallbackPurpose = [
+    { slug: "веб-приложение / SaaS", description: { ru: "продукт для пользователей", en: "a product for end users" } },
+  ];
+  const toOptions = (items: Array<{ slug: string; description: LocalizedText }>): AskOption[] =>
     items.map((item, index) => ({
       label: item.slug,
       description: item.description,
       ...(index === 0 ? { selected: true } : {}),
     }));
   return [
-    { question: "Кто ты?", header: "Роль", options: toOptions(roles.length > 0 ? roles : fallbackRole) },
     {
-      question: "Над чем ты работаешь?",
-      header: "Назначение",
+      question: { ru: "Кто ты?", en: "Who are you?" },
+      header: { ru: "Роль", en: "Role" },
+      options: toOptions(roles.length > 0 ? roles : fallbackRole),
+    },
+    {
+      question: { ru: "Над чем ты работаешь?", en: "What do you work on?" },
+      header: { ru: "Назначение", en: "Purpose" },
       options: toOptions(purposes.length > 0 ? purposes : fallbackPurpose),
     },
   ];

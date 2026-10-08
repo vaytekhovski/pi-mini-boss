@@ -47,12 +47,11 @@ function buildOnboardPrompt(): string {
     'Окно 3 — РАСШИРЕНИЯ (вкладки по категориям): `ask preset="extensions" locale=LANG`. Подтверди на «Итоге».',
     "",
     `Уже установлены из каталога: ${installed.join(", ") || "нет"}.`,
-    "Окно 4 — СВЕРКА (ТОЛЬКО если есть расширения, которые УЖЕ установлены, но НЕ отмечены в окне 3):",
-    "ask locale=LANG questions=[",
-    '  {question:"Эти расширения уже установлены, но не выбраны: <список>. Удалить их?", header:"Удалить", options:[',
-    '    {label:"оставить", description:"ничего не удалять"},',
-    '    {label:"удалить", description:"снять невыбранные установленные"} ]} ]',
-    "Если выбрано «удалить» — выполни `pi remove npm:<name>` по каждому. Если таких нет — окно 4 не открывай.",
+    "Окно 4 — СВЕРКА (ТОЛЬКО если есть расширения, которые УЖЕ установлены, но НЕ отмечены в окне 3).",
+    "Строки для панели возьми по выбранному языку LANG:",
+    '  ru: {question:"Эти расширения уже установлены, но не выбраны: <список>. Удалить их?", header:"Удалить", options:[{label:"оставить", description:"ничего не удалять"}, {label:"удалить", description:"снять невыбранные установленные"}]}',
+    '  en: {question:"These extensions are installed but not selected: <list>. Remove them?", header:"Remove", options:[{label:"keep", description:"remove nothing"}, {label:"remove", description:"uninstall the unselected ones"}]}',
+    "Если выбрано «удалить» / «remove» — выполни `pi remove npm:<name>` по каждому. Если таких нет — окно 4 не открывай.",
     "",
     "Если пользователь ОТМЕНИЛ любое окно (Esc) — НЕ задавай вопросы в чате. Напиши коротко: онбординг можно запустить позже командой /onboard. Больше ничего не делай.",
     "",
@@ -169,12 +168,23 @@ export function registerBootstrap(pi: ExtensionAPI): void {
 
   pi.on("session_start", async (_event, ctx) => {
     await applyRoleProfile(pi, ctx);
+    const english = configLanguage() === "en";
     if (needsOnboarding()) {
-      ctx.ui.notify("pi-mini-boss: конфиг не настроен — запусти /onboard", "info");
+      ctx.ui.notify(
+        english
+          ? "pi-mini-boss: config not set up — run /onboard"
+          : "pi-mini-boss: конфиг не настроен — запусти /onboard",
+        "info",
+      );
     }
     const { missingRequired } = checkExtensions(loadAgentConfig());
     if (missingRequired.length > 0) {
-      ctx.ui.notify(`pi-mini-boss: нет обязательных расширений: ${missingRequired.join(", ")}`, "warning");
+      ctx.ui.notify(
+        english
+          ? `pi-mini-boss: missing required extensions: ${missingRequired.join(", ")}`
+          : `pi-mini-boss: нет обязательных расширений: ${missingRequired.join(", ")}`,
+        "warning",
+      );
     }
   });
 
