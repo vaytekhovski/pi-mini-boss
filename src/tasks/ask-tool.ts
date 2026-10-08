@@ -279,7 +279,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       const after = pad - before;
       lines.push(`${accent("│")} ${" ".repeat(before)}${line}${" ".repeat(after)} ${accent("│")}`);
     }
-    lines.push(border("╰", "╯", theme.fg("muted", ` ${controls} `)));
+    lines.push(border("╰", "╯", theme.fg("accent", ` ${controls} `)));
 
     cached = lines;
     return lines;
