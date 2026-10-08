@@ -75,8 +75,9 @@ const STRINGS: Record<string, Record<string, string>> = {
     question: "Вопрос",
     confirm: "Enter — подтвердить",
     change: "←/→ — изменить",
-    choose: "1-9/Enter — выбрать",
-    nav: "←→/↑↓ — навигация",
+    toggle: "1-9/Enter — поставить/снять",
+    next: "↑↓ — выбрать, Enter — далее",
+    nav: "←→ — вкладки",
     hide: "скрыть",
     show: "показать",
   },
@@ -87,8 +88,9 @@ const STRINGS: Record<string, Record<string, string>> = {
     question: "Question",
     confirm: "Enter — confirm",
     change: "←/→ — change",
-    choose: "1-9/Enter — choose",
-    nav: "←→/↑↓ — navigate",
+    toggle: "1-9/Enter — toggle",
+    next: "↑↓ — pick, Enter — next",
+    nav: "←→ — tabs",
     hide: "hide",
     show: "show",
   },
@@ -148,7 +150,9 @@ function createQuestionnaire(
   // Remember which options were marked recommended, for the ★ marker.
   const recommended = selected.map((set) => new Set(set));
   const REVIEW = questions.length;
-  const cursor = questions.map(() => 0);
+  // The cursor starts on the pre-selected option, so a single-select question
+  // never opens with the highlight disagreeing with the answer.
+  const cursor = questions.map((_q, i) => [...selected[i]].sort((a, b) => a - b)[0] ?? 0);
   let tab = 0;
   let cached: string[] | undefined;
 
@@ -168,17 +172,26 @@ function createQuestionnaire(
   };
 
   /**
-   * Toggle/record option `index` on the current question. Never switches tabs:
-   * Enter has to behave the same everywhere, ←/→ moves between questions.
+   * Multi-select questions toggle, so Enter sets/unsets and ↑↓ only move the
+   * cursor. A single-select question has nothing to unset: the cursor *is* the
+   * answer and Enter just moves on.
    */
   const choose = (index: number) => {
-    const q = questions[tab];
-    if (q.multiSelect) {
-      selected[tab].has(index) ? selected[tab].delete(index) : selected[tab].add(index);
-    } else {
+    if (!questions[tab].multiSelect) {
       selected[tab].clear();
       selected[tab].add(index);
+      return;
     }
+    if (selected[tab].has(index)) {
+      selected[tab].delete(index);
+      return;
+    }
+    selected[tab].add(index);
+  };
+
+  /** Single-select only: move to the next question, or to the summary. */
+  const advance = () => {
+    tab = Math.min(REVIEW, tab + 1);
     refresh();
   };
 
@@ -197,16 +210,15 @@ function createQuestionnaire(
       refresh();
       return;
     }
-    if (matchesKey(data, Key.up)) {
+    if (matchesKey(data, Key.up) || matchesKey(data, Key.down)) {
       if (tab < REVIEW) {
-        cursor[tab] = Math.max(0, cursor[tab] - 1);
-        refresh();
-      }
-      return;
-    }
-    if (matchesKey(data, Key.down)) {
-      if (tab < REVIEW) {
-        cursor[tab] = Math.min(questions[tab].options.length - 1, cursor[tab] + 1);
+        const max = questions[tab].options.length - 1;
+        const next = cursor[tab] + (matchesKey(data, Key.up) ? -1 : 1);
+        cursor[tab] = Math.min(Math.max(0, next), max);
+        // Single-select has no way to unset, so moving the cursor picks.
+        if (!questions[tab].multiSelect) {
+          choose(cursor[tab]);
+        }
         refresh();
       }
       return;
@@ -219,6 +231,12 @@ function createQuestionnaire(
       }
       if (questions[tab].options.length > 0) {
         choose(cursor[tab]);
+      }
+      // Only multi-select toggles in place; single-select moves on.
+      if (questions[tab].multiSelect) {
+        refresh();
+      } else {
+        advance();
       }
       return;
     }
@@ -233,7 +251,14 @@ function createQuestionnaire(
     if (match) {
       const index = Number(match[0]) - 1;
       if (index < questions[tab].options.length) {
+        if (questions[tab].multiSelect) {
+          choose(index);
+          refresh();
+          return;
+        }
+        cursor[tab] = index;
         choose(index);
+        advance();
       }
     }
   }
@@ -324,7 +349,9 @@ function createQuestionnaire(
     const controls =
       tab === REVIEW
         ? `${t("confirm")} · ${t("change")}`
-        : `${t("choose")} · ${t("nav")} · Ctrl+H — ${overlayHidden ? t("show") : t("hide")}`;
+        : `${questions[tab].multiSelect ? t("toggle") : t("next")} · ${t("nav")} · Ctrl+H — ${
+            overlayHidden ? t("show") : t("hide")
+          }`;
     // Border with the label centred between the corners.
     const border = (left: string, right: string, label: string): string => {
       const inner = Math.max(1, w - 2);
