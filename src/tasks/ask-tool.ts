@@ -72,6 +72,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
   );
   // Remember which options were marked recommended, for the ★ marker.
   const recommended = selected.map((set) => new Set(set));
+  const REVIEW = questions.length;
   let tab = 0;
   let cached: string[] | undefined;
 
@@ -104,7 +105,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
   };
 
   const advance = () => {
-    if (tab < questions.length - 1) {
+    if (tab < questions.length) {
       tab += 1;
       refresh();
     } else {
@@ -129,7 +130,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     }
     if (matchesKey(data, Key.enter)) {
       // Enter accepts the current selection; with nothing chosen, take the first.
-      if (selected[tab].size === 0 && questions[tab].options.length > 0) {
+      if (tab < REVIEW && selected[tab].size === 0 && questions[tab].options.length > 0) {
         selected[tab].add(0);
       }
       advance();
@@ -137,6 +138,9 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     }
     if (matchesKey(data, Key.escape)) {
       done({ answers: [], cancelled: true });
+      return;
+    }
+    if (tab === REVIEW) {
       return;
     }
     const match = /^[1-9]$/.exec(data);
@@ -148,19 +152,35 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     }
   }
 
-  /** Build the (wrapped) body for one question. */
+  /** Build the (wrapped) body for a question, or the review screen. */
   const buildBody = (qi: number, innerW: number): string[] => {
-    const q = questions[qi];
     const body: string[] = [];
     if (questions.length > 1) {
-      const tabs = questions.map((tq, i) =>
-        i === qi
-          ? theme.fg("accent", `▸ ${tq.header || `Q${i + 1}`}`)
-          : theme.fg("dim", `${tq.header || `Q${i + 1}`}`),
+      const labels = [...questions.map((tq, i) => tq.header || `Q${i + 1}`), "Итог"];
+      const tabs = labels.map((label, i) =>
+        i === qi ? theme.fg("accent", `▸ ${label}`) : theme.fg("dim", label),
       );
       body.push(...wrapTextWithAnsi(tabs.join(theme.fg("dim", " · ")), innerW));
       body.push("");
     }
+
+    if (qi === REVIEW) {
+      body.push(...wrapTextWithAnsi(theme.fg("text", "Проверь выбор:"), innerW));
+      body.push("");
+      questions.forEach((q, i) => {
+        const labels = [...selected[i]].sort((a, b) => a - b).map((index) => q.options[index].label);
+        const value = labels.length > 0 ? labels.join(", ") : theme.fg("warning", "(не выбрано)");
+        body.push(
+          ...wrapTextWithAnsi(`${theme.fg("muted", `${q.header || `Вопрос ${i + 1}`}:`)} ${value}`, innerW),
+        );
+      });
+      body.push("");
+      body.push(...wrapTextWithAnsi(theme.fg("dim", "Enter — подтвердить"), innerW));
+      body.push(...wrapTextWithAnsi(theme.fg("dim", "←/→ — изменить · Esc — отмена"), innerW));
+      return body;
+    }
+
+    const q = questions[qi];
     body.push(...wrapTextWithAnsi(theme.fg("text", q.question), innerW));
     body.push("");
     q.options.forEach((option, index) => {
@@ -202,10 +222,12 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       body.push("");
     }
 
-    const q = questions[tab];
-    const heading = `${q.header || `Вопрос ${tab + 1}`}${
-      questions.length > 1 ? ` · ${tab + 1}/${questions.length}` : ""
-    }`;
+    const heading =
+      tab === REVIEW
+        ? "Подтверждение"
+        : `${questions[tab].header || `Вопрос ${tab + 1}`}${
+            questions.length > 1 ? ` · ${tab + 1}/${questions.length}` : ""
+          }`;
     // Border with the label centred between the corners.
     const border = (left: string, right: string, label: string): string => {
       const inner = Math.max(1, w - 2);
