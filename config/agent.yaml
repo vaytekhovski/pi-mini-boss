@@ -40,24 +40,31 @@ recommended_extensions:
   - { name: context-mode, why: "песочница + FTS5-база знаний", group: Контекст, selected: false }
   - { name: "@moyai/pi-session-hoarder", why: "архивация сессий", group: Контекст, selected: false }
   - { name: pi-btw, why: "побочные вопросы в стороне", group: Контекст, selected: false }
+  - { name: pi-blackhole, why: "компакция + наблюдательная память", group: Контекст, selected: false }
 
   # Качество
   - { name: ponytail, why: "лаконичный режим, меньше токенов", group: Качество }
   - { name: pi-simplify, why: "ревью свежих правок на ясность", group: Качество }
   - { name: "@plannotator/pi-extension", why: "ревью плана и PR с аннотациями", group: Качество, selected: false }
   - { name: pi-lens, why: "LSP/линтеры (может давать ложные ошибки)", group: Качество, selected: false }
+  - { name: gentle-pi, why: "ODD-харнесс: TDD-доказательства, ревью", group: Качество, selected: false }
+  - { name: pi-until-loop, why: "цикл проверки «пока не сделано»", group: Качество, selected: false }
 
   # Безопасность
   - { name: cc-safety-net, why: "блокировка разрушительных команд и секретов", group: Безопасность }
   - { name: "@gotgenes/pi-permission-system", why: "система прав и подтверждений", group: Безопасность, selected: false }
+  - { name: pi-sandbox, why: "OS-песочница + интерактивные подтверждения", group: Безопасность, selected: false }
+  - { name: pi-permission-modes, why: "декларативные режимы прав, AST-гейт bash", group: Безопасность, selected: false }
 
   # Планирование
   - { name: pi-goal-x, why: "постоянные цели агента", group: Планирование }
   - { name: "@narumitw/pi-plan-mode", why: "read-only режим планирования", group: Планирование, selected: false }
+  - { name: "@agimon-ai/doompi-plan", why: "reviewable planning mode без правок", group: Планирование, selected: false }
 
   # UI
   - { name: pi-powerline-footer, why: "powerline-статусбар", group: UI, selected: false }
   - { name: pi-autosuggestions, why: "ghost-подсказки в редакторе", group: UI, selected: false }
+  - { name: pi-cc-extensions, why: "TUI в стиле Claude Code", group: UI, selected: false }
 
   # Поиск и интеграции
   - { name: pi-web-access, why: "доступ в интернет (web_search, fetch_content)", group: Поиск }
@@ -65,17 +72,22 @@ recommended_extensions:
   - { name: pi-web-search, why: "нативный поиск провайдера", group: Поиск, selected: false }
   - { name: pi-mcp-adapter, why: "подключение MCP-серверов", group: Поиск, selected: false }
   - { name: "@onkernel/browser-loop", why: "браузерные инструменты для агента", group: Поиск, selected: false }
+  - { name: donsetch, why: "веб одним Rust-бинарем: fetch/search/crawl/screenshot", group: Поиск, selected: false }
+  - { name: pi-mcp-extension, why: "клиент MCP-серверов", group: Поиск, selected: false }
 
   # Наблюдаемость
   - { name: "@langfuse/pi-observability-plugin", why: "трейсинг в Langfuse", group: Наблюдаемость, selected: false }
   - { name: "@langchain/langsmith-pi-extension", why: "трейсинг в LangSmith", group: Наблюдаемость, selected: false }
   - { name: "@raindrop-ai/pi-agent", why: "трейсинг в Raindrop", group: Наблюдаемость, selected: false }
+  - { name: "@agimon-ai/log-sink-mcp", why: "сбор логов + AI-анализ", group: Наблюдаемость, selected: false }
 
   # Делегирование
   - { name: pi-subagents, why: "делегирование и параллельные субагенты", group: Делегирование }
   - { name: pi-background-tasks, why: "долгие команды в фоне", group: Делегирование }
   - { name: pi-advisor-flow, why: "схема Исполнитель/Советник", group: Делегирование, selected: false }
   - { name: "@akagilnc/pi-workflow-roles", why: "роли под workflow", group: Делегирование, selected: false }
+  - { name: "@quintinshaw/pi-dynamic-workflows", why: "фан-аут на сотни субагентов, изоляция worktree", group: Делегирование, selected: false }
+  - { name: "@henryqw/pi-subagent", why: "делегирование задач графами с проверкой", group: Делегирование, selected: false }
 
 # Порядок ведения задачи.
 workflow:
