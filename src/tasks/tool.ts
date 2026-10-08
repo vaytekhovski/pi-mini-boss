@@ -63,6 +63,9 @@ function ok(text: string, details: TaskDetails) {
   return { content: [{ type: "text" as const, text }], details };
 }
 
+/** Renders nothing: tasks live in the board panel, not the transcript. */
+const hiddenRenderer = { render: (): string[] => [], invalidate: (): void => {} };
+
 /** Register the `task` tool against a lazily-resolved store. */
 export function registerTaskTool(pi: ExtensionAPI, getStore: () => TaskStore): void {
   pi.registerTool({
@@ -77,6 +80,8 @@ export function registerTaskTool(pi: ExtensionAPI, getStore: () => TaskStore): v
       "Never mark a task completed while its tests fail — keep it in_progress and add a blocker task.",
     ],
     parameters: TASK_PARAMETERS,
+    renderCall: () => hiddenRenderer,
+    renderResult: () => hiddenRenderer,
     async execute(_toolCallId, params) {
       const store = getStore();
       const { action, id, subject, description, status, activeForm, priority } = params as TaskParams;

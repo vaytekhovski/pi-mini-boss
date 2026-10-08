@@ -10,7 +10,7 @@ Run once, before the first real task — the module marks onboarding as pending 
 ## Steps
 
 1. **Read the core template** at `config/agent.yaml` in the pi-mini-boss package (shipped defaults: `base_behavior`, `required_extensions`, `workflow`, `thinking`).
-2. **Ask the user** in one `ask_user_question` call:
+2. **Ask the user** through the `ask` tool (the terminal board panel), one question at a time. If `ask` reports the board is not running, ask in plain text instead:
    - `role.name` — who the agent is (e.g. "senior backend developer");
    - `role.purpose` — what they work on;
    - `role.language` — reply language;

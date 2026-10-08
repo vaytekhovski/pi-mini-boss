@@ -41,6 +41,9 @@ interface AskParams {
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/** Renders nothing: the question lives in the board, not the transcript. */
+const hiddenRenderer = { render: (): string[] => [], invalidate: (): void => {} };
+
 function text(value: string) {
   return { content: [{ type: "text" as const, text: value }], details: {} };
 }
@@ -58,6 +61,8 @@ export function registerAskTool(pi: ExtensionAPI, getStore: () => TaskStore): vo
       "If `ask` reports the board is not running, ask the question as normal text in your reply.",
     ],
     parameters: ASK_PARAMETERS,
+    renderCall: () => hiddenRenderer,
+    renderResult: () => hiddenRenderer,
     async execute(_toolCallId, params, signal) {
       const store = getStore();
       const input = params as AskParams;
