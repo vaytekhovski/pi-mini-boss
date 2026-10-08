@@ -62,6 +62,36 @@ export interface TaskCounts {
 /** Default store location (module-owned, next to the agent config). */
 export const DEFAULT_TASKS_DB = path.join(AGENT_ROOT, "pi-mini-boss", "tasks.db");
 
+/** One choice in a question. */
+export interface QuestionOption {
+  label: string;
+  description?: string;
+  /** Pre-selected in the board (multi-select). */
+  selected?: boolean;
+}
+
+export interface QuestionInput {
+  question: string;
+  header?: string;
+  multiSelect?: boolean;
+  options: QuestionOption[];
+}
+
+export type QuestionStatus = "pending" | "answered" | "cancelled";
+
+/** A question asked through the board (the terminal side panel). */
+export interface Question {
+  id: number;
+  question: string;
+  header: string;
+  multiSelect: boolean;
+  options: QuestionOption[];
+  answer: string[] | null;
+  status: QuestionStatus;
+  createdAt: number;
+  answeredAt: number | null;
+}
+
 interface Row {
   id: number;
   subject: string;
@@ -86,6 +116,32 @@ interface Db {
 }
 type DbCtor = new (dbPath: string) => Db;
 
+interface QuestionRow {
+  id: number;
+  question: string;
+  header: string;
+  multi_select: number;
+  options: string;
+  answer: string | null;
+  status: string;
+  created_at: number;
+  answered_at: number | null;
+}
+
+function toQuestion(row: QuestionRow): Question {
+  return {
+    id: row.id,
+    question: row.question,
+    header: row.header,
+    multiSelect: row.multi_select === 1,
+    options: JSON.parse(row.options) as QuestionOption[],
+    answer: row.answer ? (JSON.parse(row.answer) as string[]) : null,
+    status: row.status as QuestionStatus,
+    createdAt: row.created_at,
+    answeredAt: row.answered_at,
+  };
+}
+
 function toTask(row: Row): Task {
   return {
     id: row.id,
@@ -108,7 +164,24 @@ export class TaskStore {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     const Database = ctor ?? (loadBetterSqlite3() as DbCtor);
     this.db = new Database(dbPath);
+    this.db.exec("PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;");
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS board (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        pid INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS questions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        question TEXT NOT NULL,
+        header TEXT NOT NULL DEFAULT '',
+        multi_select INTEGER NOT NULL DEFAULT 0,
+        options TEXT NOT NULL,
+        answer TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at INTEGER NOT NULL,
+        answered_at INTEGER
+      );
       CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         subject TEXT NOT NULL,
@@ -216,6 +289,85 @@ export class TaskStore {
       }
     }
     return counts;
+  }
+
+  // ── Board liveness ─────────────────────────────────────────────────────
+
+  /** Liveness beacon written by the board process each tick. */
+  heartbeat(pid: number = process.pid): void {
+    this.db
+      .prepare(
+        "INSERT INTO board (id, pid, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET pid = excluded.pid, updated_at = excluded.updated_at",
+      )
+      .run(pid, Date.now());
+  }
+
+  /** True when a board process beat recently enough to answer questions. */
+  boardAlive(maxAgeMs = 4000): boolean {
+    const row = this.db.prepare("SELECT updated_at FROM board WHERE id = 1").get() as
+      | { updated_at: number }
+      | undefined;
+    return row !== undefined && Date.now() - row.updated_at < maxAgeMs;
+  }
+
+  // ── Questions (asked through the board) ────────────────────────────────
+
+  /** Publish a question for the board to display; the caller polls for the answer. */
+  askQuestion(input: QuestionInput): Question {
+    const info = this.db
+      .prepare(
+        `INSERT INTO questions (question, header, multi_select, options, status, created_at)
+         VALUES (?, ?, ?, ?, 'pending', ?)`,
+      )
+      .run(
+        input.question,
+        input.header ?? "",
+        input.multiSelect ? 1 : 0,
+        JSON.stringify(input.options),
+        Date.now(),
+      );
+    this.changed();
+    return this.getQuestion(Number(info.lastInsertRowid))!;
+  }
+
+  getQuestion(id: number): Question | null {
+    const row = this.db.prepare("SELECT * FROM questions WHERE id = ?").get(id) as
+      | QuestionRow
+      | undefined;
+    return row ? toQuestion(row) : null;
+  }
+
+  /** The newest unanswered question, if any — what the board shows. */
+  pendingQuestion(): Question | null {
+    const row = this.db
+      .prepare("SELECT * FROM questions WHERE status = 'pending' ORDER BY id DESC LIMIT 1")
+      .get() as QuestionRow | undefined;
+    return row ? toQuestion(row) : null;
+  }
+
+  /** Record the board's answer. Returns null if the question was already resolved. */
+  answerQuestion(id: number, answer: string[]): Question | null {
+    const info = this.db
+      .prepare(
+        "UPDATE questions SET answer = ?, status = 'answered', answered_at = ? WHERE id = ? AND status = 'pending'",
+      )
+      .run(JSON.stringify(answer), Date.now(), id);
+    if (info.changes === 0) {
+      return null;
+    }
+    this.changed();
+    return this.getQuestion(id);
+  }
+
+  cancelQuestion(id: number): boolean {
+    const info = this.db
+      .prepare("UPDATE questions SET status = 'cancelled', answered_at = ? WHERE id = ? AND status = 'pending'")
+      .run(Date.now(), id);
+    if (info.changes > 0) {
+      this.changed();
+      return true;
+    }
+    return false;
   }
 
   close(): void {

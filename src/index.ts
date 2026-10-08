@@ -52,6 +52,7 @@ import { registerActivityStatus } from "./bootstrap/activity-status.js";
 import { registerBootstrap } from "./bootstrap/index.js";
 import { TaskStore } from "./tasks/store.js";
 import { registerTaskTool } from "./tasks/tool.js";
+import { registerAskTool } from "./tasks/ask-tool.js";
 import { registerDashboard } from "./dashboard/index.js";
 import { registerPreviewContextCommand } from "./handlers/preview-context.js";
 import { registerStandingPinCommand } from "./handlers/standing-pin.js";
@@ -102,6 +103,7 @@ export default function (pi: ExtensionAPI) {
   let taskStore: TaskStore | undefined;
   const getTaskStore = (): TaskStore => (taskStore ??= new TaskStore());
   registerTaskTool(pi, getTaskStore);
+  registerAskTool(pi, getTaskStore);
   registerDashboard(pi, getTaskStore);
 
   const config = loadConfig();

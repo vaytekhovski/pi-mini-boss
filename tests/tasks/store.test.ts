@@ -49,4 +49,23 @@ describe('task store', () => {
     assert.equal(store.get(999), null);
     assert.equal(store.update(999, { status: 'completed' }), null);
   });
+
+  it('asks a question and records the board answer', () => {
+    const q = store.askQuestion({
+      question: 'Кто ты?',
+      header: 'Роль',
+      options: [{ label: 'backend' }, { label: 'frontend' }],
+    });
+    assert.equal(q.status, 'pending');
+    assert.equal(q.multiSelect, false);
+    assert.deepEqual(q.options.map((o) => o.label), ['backend', 'frontend']);
+    assert.equal(store.pendingQuestion()?.id, q.id);
+
+    const answered = store.answerQuestion(q.id, ['frontend']);
+    assert.equal(answered?.status, 'answered');
+    assert.deepEqual(answered?.answer, ['frontend']);
+
+    assert.equal(store.pendingQuestion(), null);
+    assert.equal(store.answerQuestion(q.id, ['backend']), null, 'no double answer');
+  });
 });

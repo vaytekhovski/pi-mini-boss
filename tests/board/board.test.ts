@@ -27,6 +27,29 @@ describe('board render', () => {
     assert.match(out, /#2 beta/);
   });
 
+  it('renders a pending question with numbered options', () => {
+    const out = strip(
+      renderBoard(
+        {
+          tasks: [],
+          counts: { total: 0, pending: 0, in_progress: 0, completed: 0, blocked: 0 },
+          question: {
+            id: 1,
+            header: 'Роль',
+            question: 'Кто ты?',
+            multiSelect: false,
+            options: [{ label: 'backend', description: 'API' }, { label: 'frontend' }],
+          },
+          selected: new Set([1]),
+        },
+        60,
+      ),
+    );
+    assert.match(out, /Кто ты\?/);
+    assert.match(out, /1 backend/);
+    assert.match(out, /2 frontend/);
+  });
+
   it('shows an empty placeholder for statuses without tasks', () => {
     const out = strip(
       renderBoard({ tasks: [], counts: { total: 0, pending: 0, in_progress: 0, completed: 0, blocked: 0 } }, 60),
