@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] — 2026-10-08
+
+First release of **pi-mini-boss**, forked from `pi-hermes-memory` 0.9.10. It keeps
+everything the fork does — persistent memory, session search, failure memory,
+correction detection, consolidation, skills — and adds the bootstrap layer.
+
+### Added
+
+- **`agent.yaml` config** — `role` (name, purpose, language, optional model / thinking /
+  tools), universal `base_behavior`, `workflow`, `thinking`, and the extension catalogue.
+  Shipped as a template, resolved per user.
+- **`/onboard`** — three-window first-run setup (language → role and purpose →
+  extensions) plus a reconcile window for installed-but-unwanted extensions. Every window
+  is an overlay the module renders itself, and the questions come from built-in presets
+  rather than generated model output.
+- **In-chat feature tour** — posted before onboarding and repeated once it finishes.
+- **Extension catalogue** — about 70 packages in eight categories, with ★ recommendation,
+  ◉ current choice and ✓ installed markers.
+- **`/extensions`** — reopen the catalogue at any time. Confirming records the choice in
+  `agent.yaml`, declares new packages in `settings.json`, drops the declaration of
+  unchecked ones (switched off, files kept), and runs the update itself through
+  `process.execPath` + `process.argv[1]`, so no shell or PATH is involved.
+- **Roles and purposes as skills** — profiles under `skills/roles/` and
+  `skills/purposes/`, each with `description` and `description_en`.
+- **Task store and web dashboard** — the `task` tool plus `/dashboard` (Hono + SSE on
+  port 7817).
+
+### Changed
+
+- Package renamed to `pi-mini-boss`, version reset to 0.1.0, description and keywords
+  rewritten for the bootstrap module, README rewritten for it too.
+
+> The entries under `[Unreleased]` below were written upstream before this fork; their
+> code ships in this release.
+
 ## [Unreleased]
 
 ### Changed
