@@ -208,8 +208,10 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     };
     const lines: string[] = [border("╭", "╮", accent(` ${heading} `))];
     for (const line of body) {
-      const padding = " ".repeat(Math.max(0, innerW - visibleWidth(line)));
-      lines.push(`${accent("│")} ${line}${padding} ${accent("│")}`);
+      const pad = Math.max(0, innerW - visibleWidth(line));
+      const before = Math.floor(pad / 2);
+      const after = pad - before;
+      lines.push(`${accent("│")} ${" ".repeat(before)}${line}${" ".repeat(after)} ${accent("│")}`);
     }
     lines.push(border("╰", "╯", theme.fg("muted", " pi-mini-boss ")));
 
