@@ -130,6 +130,16 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       return;
     }
     if (matchesKey(data, Key.enter)) {
+      // Enter also picks the highlighted option before moving on.
+      const optionIndex = cursor[tab];
+      if (!selected[tab].has(optionIndex)) {
+        if (q.multiSelect) {
+          selected[tab].add(optionIndex);
+        } else {
+          selected[tab].clear();
+          selected[tab].add(optionIndex);
+        }
+      }
       if (tab < questions.length - 1) {
         tab += 1;
         refresh();
@@ -174,12 +184,6 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
         return i === tab ? theme.fg("accent", label) : theme.fg("dim", label);
       });
       lines.push(...wrapTextWithAnsi(tabs.join(theme.fg("dim", "│")), w));
-      lines.push(
-        ...wrapTextWithAnsi(
-          theme.fg("dim", `←/→ вопросы · Ctrl+H ${overlayHidden ? "показать" : "скрыть"}`),
-          w,
-        ),
-      );
     }
     lines.push(theme.fg("accent", "─".repeat(w)));
 
@@ -204,10 +208,17 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
 
     lines.push("");
     const last = tab === questions.length - 1;
-    const hint = q.multiSelect
-      ? `↑↓ · Space/цифры — отметить · Enter — ${last ? "готово" : "далее"} · Esc — отмена`
-      : `↑↓/цифры — выбрать · Enter — ${last ? "готово" : "далее"} · Esc — отмена`;
-    lines.push(...wrapTextWithAnsi(theme.fg("dim", hint), w));
+    const controls = [
+      "↑↓/1-9 — выбрать",
+      q.multiSelect ? "Space — отметить" : null,
+      `Enter — ${last ? "готово" : "далее"}`,
+      questions.length > 1 ? "←/→ — вопросы" : null,
+      `Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`,
+      "Esc — отмена",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    lines.push(...wrapTextWithAnsi(theme.fg("dim", controls), w));
     lines.push(theme.fg("accent", "─".repeat(w)));
 
     cached = lines;
