@@ -222,10 +222,11 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     // tabs never resizes the window. Two spare rows keep some breathing room.
     const bodies = [...Array(questions.length + 1).keys()].map((qi) => buildBody(qi, innerW));
     const maxRows = Math.max(...bodies.map((b) => b.length)) + 2;
-    const body = bodies[tab];
-    while (body.length < maxRows) {
-      body.push("");
-    }
+    const shown = bodies[tab];
+    // Centre the content vertically inside the fixed-height box.
+    const padTotal = Math.max(0, maxRows - shown.length);
+    const padTop = Math.floor(padTotal / 2);
+    const body = [...new Array(padTop).fill(""), ...shown, ...new Array(padTotal - padTop).fill("")];
 
     const heading =
       tab === REVIEW
@@ -339,8 +340,8 @@ export function registerAskTool(pi: ExtensionAPI): void {
           overlay: true,
           overlayOptions: {
             anchor: "center",
-            minWidth: 30,
-            width: 44,
+            minWidth: 40,
+            width: 56,
             margin: { top: 1, bottom: 1 },
           },
           onHandle: (h: HideHandle) => {
