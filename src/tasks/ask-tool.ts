@@ -287,14 +287,6 @@ const hiddenRenderer = { render: (): string[] => [], invalidate: (): void => {} 
 
 /** Register the `ask` tool. */
 export function registerAskTool(pi: ExtensionAPI): void {
-  onHidden = () => {
-    void pi.sendMessage({
-      customType: "pi-mini-boss:panel-hidden",
-      content: "Панель вопросов скрыта. Нажми Ctrl+H, чтобы вернуть её.",
-      display: true,
-    });
-  };
-
   pi.registerShortcut(HIDE_KEY, {
     description: "Скрыть/показать панель вопросов",
     handler: () => {
@@ -328,6 +320,9 @@ export function registerAskTool(pi: ExtensionAPI): void {
 
       let handle: HideHandle | undefined;
       overlayHidden = false;
+      onHidden = () => {
+        ctx.ui.notify("Панель вопросов скрыта. Нажми Ctrl+H, чтобы вернуть её.", "info");
+      };
       const result = await ctx.ui.custom<AskResult | null>(
         (tui, theme, _kb, done) => {
           const component = createQuestionnaire(tui, theme, done, input.questions);
@@ -355,6 +350,7 @@ export function registerAskTool(pi: ExtensionAPI): void {
       );
       activeOverlay = undefined;
       overlayHidden = false;
+      onHidden = undefined;
 
       if (!result || result.cancelled) {
         return text(
