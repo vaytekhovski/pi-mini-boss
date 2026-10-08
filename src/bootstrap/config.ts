@@ -30,6 +30,12 @@ export interface AgentRole {
   name: string;
   purpose: string;
   language: string;
+  /** Optional model applied at session start, `provider/modelId`. */
+  model?: string;
+  /** Optional thinking level applied at session start. */
+  thinking?: string;
+  /** Optional active-tool allowlist applied at session start. */
+  tools?: string[];
 }
 
 /** Thinking level and whether thinking blocks are hidden. */

@@ -4,7 +4,7 @@
  *   • injects role + base_behavior + workflow into every system prompt;
  *   • exposes /onboard to (re)configure.
  */
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
   DEFAULT_CONFIG_PATH,
   USER_CONFIG_PATH,
@@ -82,9 +82,38 @@ function buildOnboardPrompt(): string {
   ].join("\n");
 }
 
+/**
+ * Apply the role profile at session start: the configured model, thinking level,
+ * and active-tool allowlist. Any field left out is not touched.
+ */
+async function applyRoleProfile(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
+  const role = loadAgentConfig().role;
+  if (!role) {
+    return;
+  }
+  if (role.thinking) {
+    try {
+      pi.setThinkingLevel(role.thinking as never);
+    } catch {
+      // A bad level in the config must not break the session.
+    }
+  }
+  if (role.model && ctx.modelRegistry) {
+    const [provider, ...rest] = role.model.split("/");
+    const model = ctx.modelRegistry.find(provider, rest.join("/"));
+    if (model) {
+      await pi.setModel(model);
+    }
+  }
+  if (role.tools && role.tools.length > 0) {
+    pi.setActiveTools(role.tools);
+  }
+}
+
 /** Register the bootstrap lifecycle hooks and the /onboard command. */
 export function registerBootstrap(pi: ExtensionAPI): void {
   pi.on("session_start", async (_event, ctx) => {
+    await applyRoleProfile(pi, ctx);
     if (needsOnboarding()) {
       ctx.ui.notify("pi-mini-boss: конфиг не настроен — запусти /onboard", "info");
     }
