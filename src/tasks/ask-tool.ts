@@ -78,6 +78,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
   // Remember which options were marked recommended, for the ★ marker.
   const recommended = selected.map((set) => new Set(set));
   const REVIEW = questions.length;
+  const cursor = questions.map(() => 0);
   let tab = 0;
   let cached: string[] | undefined;
 
@@ -123,20 +124,42 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       toggleOverlayVisibility();
       return;
     }
-    if (matchesKey(data, Key.up) || matchesKey(data, Key.left)) {
+    if (matchesKey(data, Key.left)) {
       tab = Math.max(0, tab - 1);
       refresh();
       return;
     }
-    if (matchesKey(data, Key.down) || matchesKey(data, Key.right)) {
+    if (matchesKey(data, Key.right)) {
       tab = Math.min(REVIEW, tab + 1);
       refresh();
       return;
     }
+    if (matchesKey(data, Key.up)) {
+      if (tab < REVIEW) {
+        cursor[tab] = Math.max(0, cursor[tab] - 1);
+        refresh();
+      }
+      return;
+    }
+    if (matchesKey(data, Key.down)) {
+      if (tab < REVIEW) {
+        cursor[tab] = Math.min(questions[tab].options.length - 1, cursor[tab] + 1);
+        refresh();
+      }
+      return;
+    }
     if (matchesKey(data, Key.enter)) {
-      // Enter accepts the current selection; with nothing chosen, take the first.
-      if (tab < REVIEW && selected[tab].size === 0 && questions[tab].options.length > 0) {
-        selected[tab].add(0);
+      // Enter picks the highlighted option (multi: adds it), then moves on.
+      if (tab < REVIEW && questions[tab].options.length > 0) {
+        const index = cursor[tab];
+        if (!selected[tab].has(index)) {
+          if (questions[tab].multiSelect) {
+            selected[tab].add(index);
+          } else {
+            selected[tab].clear();
+            selected[tab].add(index);
+          }
+        }
       }
       advance();
       return;
@@ -199,7 +222,8 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       const star = recommended[qi].has(index) ? ` ${theme.fg("warning", "★")}` : "";
       const label = isSelected ? theme.fg("accent", option.label) : theme.fg("text", option.label);
       const desc = option.description ? ` ${theme.fg("muted", `— ${option.description}`)}` : "";
-      optionLines.push(...wrapTextWithAnsi(`${marker} ${index + 1}. ${label}${star}${desc}`, innerW));
+      const focus = index === cursor[qi] ? theme.fg("accent", "‣") : " ";
+      optionLines.push(...wrapTextWithAnsi(`${focus} ${marker} ${index + 1}. ${label}${star}${desc}`, innerW));
     });
     // The list is left-aligned as a block and centred horizontally as a whole.
     const widest = optionLines.length > 0 ? Math.max(...optionLines.map((line) => visibleWidth(line))) : 0;
@@ -242,7 +266,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     const controls =
       tab === REVIEW
         ? "Enter — подтвердить · ←/→ — изменить"
-        : `1-9/Enter — выбрать · ↑↓/←→ — вопросы · Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`;
+        : `1-9/Enter — выбрать · ↑↓ — варианты · ←/→ — вопросы · Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`;
     // Border with the label centred between the corners.
     const border = (left: string, right: string, label: string): string => {
       const inner = Math.max(1, w - 2);
