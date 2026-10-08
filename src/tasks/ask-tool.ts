@@ -379,7 +379,7 @@ export function registerAskTool(pi: ExtensionAPI): void {
           overlayOptions: {
             anchor: "center",
             minWidth: 40,
-            width: 64,
+            width: 76,
             margin: { top: 1, bottom: 1 },
           },
           onHandle: (h: HideHandle) => {
