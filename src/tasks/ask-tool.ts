@@ -56,6 +56,8 @@ type HideHandle = { setHidden(hidden: boolean): void };
 // ── Overlay visibility (module scope so the global shortcut can reach it) ──
 let activeOverlay: { setHidden(hidden: boolean): void; refresh(): void } | undefined;
 let overlayHidden = false;
+/** Called when the panel is hidden, so the chat can explain how to bring it back. */
+let onHidden: (() => void) | undefined;
 
 function toggleOverlayVisibility(): void {
   if (!activeOverlay) {
@@ -64,6 +66,9 @@ function toggleOverlayVisibility(): void {
   overlayHidden = !overlayHidden;
   activeOverlay.setHidden(overlayHidden);
   activeOverlay.refresh();
+  if (overlayHidden) {
+    onHidden?.();
+  }
 }
 
 function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => void, questions: QuestionSpec[]) {
@@ -176,7 +181,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       });
       body.push("");
       body.push(...wrapTextWithAnsi(theme.fg("dim", "Enter — подтвердить"), innerW));
-      body.push(...wrapTextWithAnsi(theme.fg("dim", "←/→ — изменить · Esc — отмена"), innerW));
+      body.push(...wrapTextWithAnsi(theme.fg("dim", "←/→ — изменить"), innerW));
       return body;
     }
 
@@ -198,7 +203,7 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     body.push(...wrapTextWithAnsi(theme.fg("dim", "↑↓/←→ — вопросы"), innerW));
     body.push(
       ...wrapTextWithAnsi(
-        theme.fg("dim", `Ctrl+H — ${overlayHidden ? "показать" : "скрыть"} · Esc — отмена`),
+        theme.fg("dim", `Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`),
         innerW,
       ),
     );
@@ -238,7 +243,20 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
         accent(left) + accent("─".repeat(before)) + label + accent("─".repeat(after)) + accent(right)
       );
     };
-    const lines: string[] = [border("╭", "╮", accent(` ${heading} `))];
+    const close = ` ${theme.fg("muted", "Esc")} `;
+    const topLabel = accent(` ${heading} `);
+    const topInner = Math.max(1, w - 2 - visibleWidth(close));
+    const topPad = Math.max(0, topInner - visibleWidth(topLabel));
+    const topBefore = Math.floor(topPad / 2);
+    const topAfter = topPad - topBefore;
+    const lines: string[] = [
+      accent("╭") +
+        accent("─".repeat(topBefore)) +
+        topLabel +
+        accent("─".repeat(topAfter)) +
+        close +
+        accent("╮"),
+    ];
     for (const line of body) {
       const pad = Math.max(0, innerW - visibleWidth(line));
       const before = Math.floor(pad / 2);
@@ -269,6 +287,14 @@ const hiddenRenderer = { render: (): string[] => [], invalidate: (): void => {} 
 
 /** Register the `ask` tool. */
 export function registerAskTool(pi: ExtensionAPI): void {
+  onHidden = () => {
+    void pi.sendMessage({
+      customType: "pi-mini-boss:panel-hidden",
+      content: "Панель вопросов скрыта. Нажми Ctrl+H, чтобы вернуть её.",
+      display: true,
+    });
+  };
+
   pi.registerShortcut(HIDE_KEY, {
     description: "Скрыть/показать панель вопросов",
     handler: () => {
