@@ -13,7 +13,7 @@ import {
   type AgentConfig,
 } from "./config.js";
 import { checkExtensions, installSelectedExtensions } from "./extension-check.js";
-import { applyExtensionSelection } from "./extension-selection.js";
+import { applyExtensionSelection, syncDeclaredPackages } from "./extension-selection.js";
 import { extensionQuestions, installedCatalogNames } from "./questions.js";
 import { runQuestionnaire } from "../tasks/ask-tool.js";
 
@@ -152,6 +152,15 @@ export function registerBootstrap(pi: ExtensionAPI): void {
     }
     recapPending = false;
     const language = configLanguage();
+    // Onboarding just wrote the config: declare what it chose and fetch it, so
+    // the restart only has to load the packages. Skipped when onboarding was
+    // cancelled — the template's defaults are not the user's choice.
+    if (!needsOnboarding()) {
+      const added = installSelectedExtensions(loadAgentConfig());
+      if (added.length > 0) {
+        await syncDeclaredPackages((command, args) => pi.exec(command, args));
+      }
+    }
     // agent_end fires while the session still streams; without an explicit
     // triggerTurn:false Pi steers the message into the agent, which then
     // restarts the onboarding windows. This message is informational only.
@@ -252,10 +261,21 @@ export function registerBootstrap(pi: ExtensionAPI): void {
       const { selected, added, removed } = applyExtensionSelection(
         result.answers.flatMap((answer) => answer.labels),
       );
+      // Fetch what was just declared, instead of sending the user to a shell.
+      const changed = added.length + removed.length > 0;
+      const synced = changed && (await syncDeclaredPackages((command, args) => pi.exec(command, args)));
+      const tail = english
+        ? synced
+          ? " — restart Pi to load them"
+          : " — restart Pi (or run `pi update --extensions`)"
+        : synced
+          ? " — перезапусти Pi, чтобы загрузились"
+          : " — перезапусти Pi (или `pi update --extensions`)";
       ctx.ui.notify(
-        english
-          ? `pi-mini-boss: ${selected.length} selected, ${added.length} added, ${removed.length} switched off — restart Pi (or run \`pi update --extensions\`)`
-          : `pi-mini-boss: выбрано ${selected.length} · добавил ${added.length} · снял ${removed.length} — перезапусти Pi (или \`pi update --extensions\`)`,
+        (english
+          ? `pi-mini-boss: ${selected.length} selected, ${added.length} added, ${removed.length} switched off`
+          : `pi-mini-boss: выбрано ${selected.length} · добавил ${added.length} · снял ${removed.length}`) +
+          tail,
         "info",
       );
     },

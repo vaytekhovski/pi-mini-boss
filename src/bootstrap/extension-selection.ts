@@ -20,6 +20,28 @@ export interface SelectionResult {
   removed: string[];
 }
 
+/** Runs a command; matches `pi.exec` closely enough for our one call. */
+export type ExecFn = (command: string, args: string[]) => Promise<unknown>;
+
+/**
+ * Make Pi fetch the declared packages right away, so a restart only has to load
+ * them. The running process is already Node, so we re-use its own entry point:
+ * `pi` may be reachable from a shell where `node` is not, and then the CLI dies
+ * with "exec: node: not found". Returns false when the update could not run.
+ */
+export async function syncDeclaredPackages(exec: ExecFn): Promise<boolean> {
+  const entry = process.argv[1];
+  if (!entry) {
+    return false;
+  }
+  try {
+    await exec(process.execPath, [entry, "update", "--extensions"]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Names chosen in the user config; the shipped defaults before onboarding. */
 export function currentSelection(): string[] {
   const config = loadAgentConfig();
