@@ -40,7 +40,7 @@ function buildSystemPromptBlock(config: AgentConfig): string {
 function buildOnboardPrompt(): string {
   const installed = installedCatalogNames();
   return [
-    "Онбординг pi-mini-boss — ТРИ окна подряд. Вопросы строит сам модуль, ты только вызываешь `ask` с пресетом: ничего не сочиняй, не исследуй ФС, не ищи и не загружай скиллы.",
+    "Онбординг pi-mini-boss — ТРИ окна подряд. Вопросы строит сам модуль, ты только вызываешь `ask` с пресетом: ничего не сочиняй, не исследуй ФС, не ищи и не загружай скиллы. Описание возможностей модуль уже вывел в чат сам — не пересказывай его.",
     "",
     'Окно 1 — ЯЗЫК: `ask preset="language"` (locale="ru"). Подтверди на «Итоге». Запомни язык как LANG.',
     'Окно 2 — РОЛЬ и НАЗНАЧЕНИЕ: `ask preset="role" locale=LANG`. Подтверди на «Итоге».',
@@ -64,6 +64,51 @@ function buildOnboardPrompt(): string {
     "",
     "Шаг 5. Ответь одной короткой строкой, как настроен агент. Больше ничего не делай.",
   ].join("\n");
+}
+
+/**
+ * Short tour of what pi-mini-boss already does. Posted to the transcript by the
+ * extension itself (exact text, no model round-trip), before onboarding and
+ * once more after it finishes so nobody misses it.
+ */
+const TOUR = {
+  ru: {
+    title: "pi-mini-boss — что уже работает",
+    body: [
+      "- **Память между сессиями** — `memory_add` / `memory_search`: факты, решения и ошибки сохраняются и находятся позже; прошлые сессии индексируются и ищутся. Личные правила «навсегда» — `/memory-pin` (STANDING.md).",
+      "- **Задачи и веб-доска** — инструмент `task` со статусами (pending → in_progress → completed / blocked) и доска в браузере: `/dashboard` поднимает локальный сервер и показывает прогресс в реальном времени.",
+      "- **Панель вопросов** — инструмент `ask`: оверлей с вкладками, мультивыбором и живым переключением языка (это то, что откроется сейчас).",
+      "- **Роли и назначения** — профиль агента: поведение и язык, при желании — модель, уровень thinking и набор активных инструментов.",
+      "- **Процесс работы** — скилл `workflow`: план → работа → проверка → закрытие; статус задачи обновляется в том же шаге.",
+      "- **Команды** — `/onboard` (эта настройка), `/clear` (очистить окно).",
+      "",
+      "_Дальше — три окна настройки: язык → роль → расширения._",
+    ].join("\n"),
+  },
+  en: {
+    title: "pi-mini-boss — what already works",
+    body: [
+      "- **Memory across sessions** — `memory_add` / `memory_search`: facts, decisions and failures are saved and found later; past sessions are indexed and searchable. Permanent personal rules — `/memory-pin` (STANDING.md).",
+      "- **Tasks and a web board** — the `task` tool with statuses (pending → in_progress → completed / blocked) and a browser board: `/dashboard` starts a local server and shows progress in real time.",
+      "- **Question panel** — the `ask` tool: an overlay with tabs, multi-select and live language switching (this is what opens next).",
+      "- **Roles and purposes** — an agent profile: behaviour and language, optionally the model, thinking level and active tool set.",
+      "- **Working process** — the `workflow` skill: plan → do → verify → close; task status updates in the same step.",
+      "- **Commands** — `/onboard` (this setup), `/clear` (clear the window).",
+      "",
+      "_Next: three windows of setup — language → role → extensions._",
+    ].join("\n"),
+  },
+} as const;
+
+/** The tour in the configured language, optionally under a different heading. */
+function tourText(language: string, title?: string): string {
+  const entry = language === "en" ? TOUR.en : TOUR.ru;
+  return `**${title ?? entry.title}**\n\n${entry.body}`;
+}
+
+/** The language currently saved in the user config. */
+function configLanguage(): string {
+  return loadAgentConfig().role.language === "en" ? "en" : "ru";
 }
 
 /**
@@ -96,6 +141,26 @@ async function applyRoleProfile(pi: ExtensionAPI, ctx: ExtensionContext): Promis
 
 /** Register the bootstrap lifecycle hooks and the /onboard command. */
 export function registerBootstrap(pi: ExtensionAPI): void {
+  // Set when /onboard starts so the tour is repeated once that run settles —
+  // whoever missed it at the top gets it too.
+  let recapPending = false;
+
+  pi.on("agent_end", async () => {
+    if (!recapPending) {
+      return;
+    }
+    recapPending = false;
+    const language = configLanguage();
+    await pi.sendMessage({
+      customType: "pi-mini-boss:tour",
+      content: tourText(
+        language,
+        language === "en" ? "Reminder: what already works" : "Напоминание: что уже работает",
+      ),
+      display: true,
+    });
+  });
+
   pi.on("session_start", async (_event, ctx) => {
     await applyRoleProfile(pi, ctx);
     if (needsOnboarding()) {
@@ -123,6 +188,14 @@ export function registerBootstrap(pi: ExtensionAPI): void {
     description: "Настроить pi-mini-boss: роль, назначение, язык, расширения",
     handler: async (_args, ctx) => {
       await ctx.waitForIdle();
+      // The feature tour goes to the transcript first; the onboarding prompt is a
+      // hidden custom message, so the long instructions never show up there.
+      recapPending = true;
+      await pi.sendMessage({
+        customType: "pi-mini-boss:tour",
+        content: tourText(configLanguage()),
+        display: true,
+      });
       // Hidden custom message: the model gets the instructions and a turn starts,
       // but the long prompt never appears in the transcript.
       await pi.sendMessage(
