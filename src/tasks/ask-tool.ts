@@ -192,18 +192,22 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       ),
     );
 
-    // Box with the title in the top border, like a window.
-    const title = `pi-mini-boss · ${q.header || `Вопрос ${tab + 1}`}${
+    // Box: topic + number in the top border, brand in the bottom border.
+    const heading = `${q.header || `Вопрос ${tab + 1}`}${
       questions.length > 1 ? ` · ${tab + 1}/${questions.length}` : ""
     }`;
-    const label = ` ${title} `;
-    const fill = Math.max(0, w - 3 - visibleWidth(label));
-    const lines: string[] = [accent("╭─") + accent(label) + accent("─".repeat(fill)) + accent("╮")];
+    const topLabel = ` ${heading} `;
+    const topFill = Math.max(0, w - 3 - visibleWidth(topLabel));
+    const lines: string[] = [accent("╭─") + accent(topLabel) + accent("─".repeat(topFill)) + accent("╮")];
     for (const line of body) {
       const padding = " ".repeat(Math.max(0, innerW - visibleWidth(line)));
       lines.push(`${accent("│")} ${line}${padding} ${accent("│")}`);
     }
-    lines.push(accent(`╰${"─".repeat(w - 2)}╯`));
+    const bottomLabel = " pi-mini-boss ";
+    const bottomFill = Math.max(0, w - 3 - visibleWidth(bottomLabel));
+    lines.push(
+      accent("╰─") + theme.fg("muted", bottomLabel) + accent("─".repeat(bottomFill)) + accent("╯"),
+    );
 
     cached = lines;
     return lines;
