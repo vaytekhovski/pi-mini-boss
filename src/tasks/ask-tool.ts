@@ -460,7 +460,7 @@ export function registerAskTool(pi: ExtensionAPI): void {
           overlayOptions: {
             anchor: "center",
             minWidth: 40,
-            width: 100,
+            width: 120,
             margin: { top: 1, bottom: 1 },
           },
           onHandle: (h: HideHandle) => {
