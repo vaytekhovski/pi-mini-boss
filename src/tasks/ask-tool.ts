@@ -172,12 +172,17 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     if (qi === REVIEW) {
       body.push(...wrapTextWithAnsi(theme.fg("text", "Проверь выбор:"), innerW));
       body.push("");
+      const half = Math.floor(innerW / 2);
       questions.forEach((q, i) => {
         const labels = [...selected[i]].sort((a, b) => a - b).map((index) => q.options[index].label);
-        const value = labels.length > 0 ? labels.join(", ") : theme.fg("warning", "(не выбрано)");
-        body.push(
-          ...wrapTextWithAnsi(`${theme.fg("muted", `${q.header || `Вопрос ${i + 1}`}:`)} ${value}`, innerW),
-        );
+        const label = `${q.header || `Вопрос ${i + 1}`}:`;
+        const value = labels.length > 0 ? labels.join(", ") : "(не выбрано)";
+        // The label ends (its colon) at the centre; the value starts there.
+        const left = " ".repeat(Math.max(0, half - label.length)) + theme.fg("muted", label);
+        const room = Math.max(0, innerW - half);
+        const text = value.length > room ? value.slice(0, room) : value;
+        const line = left + text;
+        body.push(line + " ".repeat(Math.max(0, innerW - visibleWidth(line))));
       });
       body.push("");
       body.push(...wrapTextWithAnsi(theme.fg("dim", "Enter — подтвердить"), innerW));
@@ -193,10 +198,8 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       const marker = isSelected ? theme.fg("accent", q.multiSelect ? "◉" : "●") : theme.fg("dim", "○");
       const star = recommended[qi].has(index) ? ` ${theme.fg("warning", "★")}` : "";
       const label = isSelected ? theme.fg("accent", option.label) : theme.fg("text", option.label);
-      body.push(...wrapTextWithAnsi(`${marker} ${index + 1}. ${label}${star}`, innerW));
-      if (option.description) {
-        body.push(...wrapTextWithAnsi(`   ${theme.fg("muted", option.description)}`, innerW));
-      }
+      const desc = option.description ? ` ${theme.fg("muted", `— ${option.description}`)}` : "";
+      body.push(...wrapTextWithAnsi(`${marker} ${index + 1}. ${label}${star}${desc}`, innerW));
     });
     body.push("");
     body.push(...wrapTextWithAnsi(theme.fg("dim", "1-9/Enter — выбрать"), innerW));
