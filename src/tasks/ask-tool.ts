@@ -1,9 +1,9 @@
 /**
  * pi-mini-boss `ask` tool — asks the user through a centered overlay panel.
  *
- * One call can carry several questions, shown as tabs (←/→). The panel toggles
- * with Ctrl+H: a global shortcut handles the "show again" case, because a hidden
- * overlay no longer receives key input.
+ * One call can carry several questions, shown as tabs. Arrow keys move between
+ * questions; 1-9 / Enter choose. Ctrl+H toggles the panel (a global shortcut, so
+ * it also works while hidden).
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui";
@@ -70,7 +70,8 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
   const selected = questions.map(
     (q) => new Set<number>(q.options.map((o, i) => (o.selected ? i : -1)).filter((i) => i >= 0)),
   );
-  const cursor = questions.map(() => 0);
+  // Remember which options were marked recommended, for the ★ marker.
+  const recommended = selected.map((set) => new Set(set));
   let tab = 0;
   let cached: string[] | undefined;
 
@@ -89,12 +90,25 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     });
   };
 
-  const toggle = (qi: number, oi: number) => {
-    if (questions[qi].multiSelect) {
-      selected[qi].has(oi) ? selected[qi].delete(oi) : selected[qi].add(oi);
+  /** Choose option `index` on the current question, then advance/submit. */
+  const chooseAndAdvance = (index: number) => {
+    const q = questions[tab];
+    if (q.multiSelect) {
+      selected[tab].has(index) ? selected[tab].delete(index) : selected[tab].add(index);
+      refresh();
+      return;
+    }
+    selected[tab].clear();
+    selected[tab].add(index);
+    advance();
+  };
+
+  const advance = () => {
+    if (tab < questions.length - 1) {
+      tab += 1;
+      refresh();
     } else {
-      selected[qi].clear();
-      selected[qi].add(oi);
+      submit();
     }
   };
 
@@ -103,49 +117,22 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
       toggleOverlayVisibility();
       return;
     }
-    const q = questions[tab];
-    if (matchesKey(data, Key.left)) {
+    if (matchesKey(data, Key.up) || matchesKey(data, Key.left)) {
       tab = Math.max(0, tab - 1);
       refresh();
       return;
     }
-    if (matchesKey(data, Key.right)) {
+    if (matchesKey(data, Key.down) || matchesKey(data, Key.right)) {
       tab = Math.min(questions.length - 1, tab + 1);
       refresh();
       return;
     }
-    if (matchesKey(data, Key.up)) {
-      cursor[tab] = Math.max(0, cursor[tab] - 1);
-      refresh();
-      return;
-    }
-    if (matchesKey(data, Key.down)) {
-      cursor[tab] = Math.min(q.options.length - 1, cursor[tab] + 1);
-      refresh();
-      return;
-    }
-    if (matchesKey(data, Key.space)) {
-      toggle(tab, cursor[tab]);
-      refresh();
-      return;
-    }
     if (matchesKey(data, Key.enter)) {
-      // Enter also picks the highlighted option before moving on.
-      const optionIndex = cursor[tab];
-      if (!selected[tab].has(optionIndex)) {
-        if (q.multiSelect) {
-          selected[tab].add(optionIndex);
-        } else {
-          selected[tab].clear();
-          selected[tab].add(optionIndex);
-        }
+      // Enter accepts the current selection; with nothing chosen, take the first.
+      if (selected[tab].size === 0 && questions[tab].options.length > 0) {
+        selected[tab].add(0);
       }
-      if (tab < questions.length - 1) {
-        tab += 1;
-        refresh();
-      } else {
-        submit();
-      }
+      advance();
       return;
     }
     if (matchesKey(data, Key.escape)) {
@@ -155,18 +142,8 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     const match = /^[1-9]$/.exec(data);
     if (match) {
       const index = Number(match[0]) - 1;
-      if (index >= q.options.length) {
-        return;
-      }
-      cursor[tab] = index;
-      toggle(tab, index);
-      if (q.multiSelect) {
-        refresh();
-      } else if (tab < questions.length - 1) {
-        tab += 1;
-        refresh();
-      } else {
-        submit();
+      if (index < questions[tab].options.length) {
+        chooseAndAdvance(index);
       }
     }
   }
@@ -177,49 +154,45 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     }
     const w = Math.max(1, width);
     const lines: string[] = [];
+    const q = questions[tab];
+
+    // Header: title + current tab + progress.
+    const title = `pi-mini-boss · ${q.header || `Вопрос ${tab + 1}`}`;
+    const progress = questions.length > 1 ? `  ${tab + 1}/${questions.length}` : "";
+    lines.push(...wrapTextWithAnsi(theme.fg("accent", title) + theme.fg("dim", progress), w));
 
     if (questions.length > 1) {
-      const tabs = questions.map((q, i) => {
-        const label = ` ${q.header || `Q${i + 1}`} `;
-        return i === tab ? theme.fg("accent", label) : theme.fg("dim", label);
-      });
-      lines.push(...wrapTextWithAnsi(tabs.join(theme.fg("dim", "│")), w));
+      const tabs = questions.map((tq, i) =>
+        i === tab ? theme.fg("accent", `▸ ${tq.header || `Q${i + 1}`}`) : theme.fg("dim", `  ${tq.header || `Q${i + 1}`}`),
+      );
+      lines.push(...wrapTextWithAnsi(tabs.join(theme.fg("dim", "  ")), w));
     }
-    lines.push(theme.fg("accent", "─".repeat(w)));
 
-    const q = questions[tab];
+    lines.push(theme.fg("dim", "─".repeat(w)));
+    lines.push("");
     lines.push(...wrapTextWithAnsi(theme.fg("text", q.question), w));
     lines.push("");
 
     q.options.forEach((option, index) => {
-      const mark = q.multiSelect
-        ? selected[tab].has(index)
-          ? "[x]"
-          : "[ ]"
-        : selected[tab].has(index)
-          ? "(•)"
-          : "( )";
-      const prefix = index === cursor[tab] ? theme.fg("accent", "> ") : "  ";
-      lines.push(...wrapTextWithAnsi(`${prefix}${mark} ${index + 1}. ${option.label}`, w));
+      const isSelected = selected[tab].has(index);
+      const marker = isSelected ? theme.fg("accent", q.multiSelect ? "◉" : "●") : theme.fg("dim", "○");
+      const star = recommended[tab].has(index) ? ` ${theme.fg("warning", "★")}` : "";
+      const label = isSelected ? theme.fg("accent", option.label) : theme.fg("text", option.label);
+      lines.push(...wrapTextWithAnsi(`${marker} ${index + 1}. ${label}${star}`, w));
       if (option.description) {
-        lines.push(...wrapTextWithAnsi(`      ${theme.fg("muted", option.description)}`, w));
+        lines.push(...wrapTextWithAnsi(`    ${theme.fg("muted", option.description)}`, w));
       }
     });
 
     lines.push("");
-    const last = tab === questions.length - 1;
-    const controls = [
-      "↑↓/1-9 — выбрать",
-      q.multiSelect ? "Space — отметить" : null,
-      `Enter — ${last ? "готово" : "далее"}`,
-      questions.length > 1 ? "←/→ — вопросы" : null,
-      `Ctrl+H — ${overlayHidden ? "показать" : "скрыть"}`,
-      "Esc — отмена",
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    lines.push(...wrapTextWithAnsi(theme.fg("dim", controls), w));
-    lines.push(theme.fg("accent", "─".repeat(w)));
+    lines.push(theme.fg("dim", "─".repeat(w)));
+    lines.push(...wrapTextWithAnsi(theme.fg("dim", "1-9/Enter — выбрать · ↑↓/←→ — вопросы"), w));
+    lines.push(
+      ...wrapTextWithAnsi(
+        theme.fg("dim", `Ctrl+H — ${overlayHidden ? "показать" : "скрыть"} · Esc — отмена`),
+        w,
+      ),
+    );
 
     cached = lines;
     return lines;
@@ -243,8 +216,6 @@ const hiddenRenderer = { render: (): string[] => [], invalidate: (): void => {} 
 
 /** Register the `ask` tool. */
 export function registerAskTool(pi: ExtensionAPI): void {
-  // Global toggle: a hidden overlay receives no key input, so the "show again"
-  // half has to be an app-level shortcut.
   pi.registerShortcut(HIDE_KEY, {
     description: "Скрыть/показать панель вопросов",
     handler: () => {
@@ -256,11 +227,12 @@ export function registerAskTool(pi: ExtensionAPI): void {
     name: ASK_TOOL_NAME,
     label: "Ask",
     description:
-      "Ask the user one or more questions with options through a centered overlay panel. Questions are shown as tabs (←/→). Supports single/multi choice and pre-selected options. Returns the chosen labels per question.",
+      "Ask the user one or more questions with options through a centered overlay panel. Arrow keys switch questions; 1-9 or Enter choose. Supports single/multi choice and pre-selected options. Returns the chosen labels per question.",
     promptSnippet: "Ask the user questions via a panel",
     promptGuidelines: [
       "Use `ask` for structured questions (role, choices, confirmations) — put related questions in one call; they become tabs.",
       "Set selected:true on the option you recommend as the default.",
+      "If the user cancels, do NOT repeat the questions in chat — acknowledge briefly and stop.",
     ],
     parameters: ASK_PARAMETERS,
     renderCall: () => hiddenRenderer,
@@ -288,8 +260,9 @@ export function registerAskTool(pi: ExtensionAPI): void {
           overlay: true,
           overlayOptions: {
             anchor: "center",
-            minWidth: 40,
-            width: "60%",
+            minWidth: 34,
+            width: "48%",
+            margin: { top: 1, bottom: 1 },
           },
           onHandle: (h: HideHandle) => {
             handle = h;
@@ -300,7 +273,9 @@ export function registerAskTool(pi: ExtensionAPI): void {
       overlayHidden = false;
 
       if (!result || result.cancelled) {
-        return text("User cancelled the question.");
+        return text(
+          "User cancelled the questions. Do NOT repeat them in chat — just acknowledge briefly and stop.",
+        );
       }
       const summary = result.answers
         .map((a) => `${a.header}: ${a.labels.join(", ") || "(none)"}`)

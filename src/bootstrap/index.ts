@@ -62,6 +62,8 @@ function buildOnboardPrompt(): string {
     '    {label:"pi-web-access", description:"доступ в интернет", selected:true},',
     '    {label:"billion-context-pi", description:"сжатие контекста, длинные сессии", selected:true} ]} ]',
     "",
+    "Если пользователь ОТМЕНИЛ вопросы (Esc) — НЕ задавай их в чате. Напиши одну короткую дружелюбную фразу: онбординг можно запустить позже командой /onboard, а настроенный агент понимает контекст проекта и работает точнее. Больше ничего не делай.",
+    "",
     `Шаг 2. Прочитай шаблон ${DEFAULT_CONFIG_PATH} (это файл по абсолютному пути — не ищи его) и запиши ${USER_CONFIG_PATH}:`,
     "   - role.name / role.purpose / role.language ← из ответов;",
     "   - base_behavior / workflow / thinking / required_extensions ← как в шаблоне;",
