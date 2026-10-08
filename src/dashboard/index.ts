@@ -19,7 +19,17 @@ export function registerDashboard(pi: ExtensionAPI, getStore: () => TaskStore): 
     handler: async (_args, ctx) => {
       if (!handle) {
         starting ??= startDashboard(getStore(), DEFAULT_DASHBOARD_PORT);
-        handle = await starting;
+        try {
+          handle = await starting;
+        } catch (err) {
+          // Never cache a rejected promise: the next /dashboard must retry.
+          starting = undefined;
+          ctx.ui.notify(
+            `dashboard: порт ${DEFAULT_DASHBOARD_PORT} занят или сервер не поднялся — ${err instanceof Error ? err.message : String(err)}`,
+            "error",
+          );
+          return;
+        }
       }
       ctx.ui.notify(`pi-mini-boss dashboard → ${handle.url}`, "info");
     },

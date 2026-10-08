@@ -21,16 +21,37 @@ export function createDashboardApp(store: TaskStore): Hono {
 
   app.get("/api/events", (c) =>
     streamSSE(c, async (stream) => {
-      const send = () => stream.writeSSE({ event: "tasks", data: JSON.stringify(snapshot()) });
+      // Writing to a stream the client already dropped must not surface as an
+      // unhandled rejection — it would take the whole dashboard down.
+      const write = (event: string, data: string) => stream.writeSSE({ event, data }).catch(() => {});
+      const send = () => write("tasks", JSON.stringify(snapshot()));
+      let closed: () => void = () => {};
+      const done = new Promise<void>((resolve) => {
+        closed = resolve;
+      });
       const off = store.onChange(() => {
         void send();
       });
-      stream.onAbort(off);
+      stream.onAbort(() => {
+        off();
+        closed();
+      });
       await send();
-      // Keep the connection open; a periodic ping lets the client detect drops.
+      // Keep the connection open; the ping lets the client detect drops, and the
+      // race ends the loop as soon as the client goes away.
       while (!stream.aborted) {
-        await stream.sleep(15000);
-        await stream.writeSSE({ event: "ping", data: "1" });
+        // Own clearable timer instead of stream.sleep: otherwise a client that
+        // disconnects mid-wait leaves a 15s handle that keeps the process alive.
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const tick = new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, 15000);
+        });
+        await Promise.race([tick, done]);
+        clearTimeout(timer);
+        if (stream.aborted) {
+          break;
+        }
+        await write("ping", "1");
       }
     }),
   );
@@ -48,12 +69,15 @@ export interface DashboardHandle {
 /** Start the dashboard; resolves once the port is bound. */
 export function startDashboard(store: TaskStore, port: number = DEFAULT_DASHBOARD_PORT): Promise<DashboardHandle> {
   const app = createDashboardApp(store);
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const server = serve({ fetch: app.fetch, port }, (info) => {
       resolve({
         url: `http://localhost:${info.port}`,
         stop: () => server.close(),
       });
     });
+    // Without this the promise never settles when the port is taken (EADDRINUSE)
+    // and /dashboard hangs instead of saying why.
+    server.on("error", reject);
   });
 }
