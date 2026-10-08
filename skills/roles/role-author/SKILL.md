@@ -1,6 +1,6 @@
 ---
 name: role-author
-description: "Автор ролей pi-mini-boss: написать или обновить профессиональную роль-профиль (фокус, model/thinking/tools, критерии проверки) в skills/roles/<slug>/SKILL.md. Use when asked to create, improve, or fill in a pi-mini-boss role."
+description: "Создавать и дополнять роли pi-mini-boss."
 ---
 
 # Автор ролей pi-mini-boss

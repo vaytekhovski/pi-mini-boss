@@ -39,32 +39,35 @@ function buildSystemPromptBlock(config: AgentConfig): string {
  * agent absolute paths, so it never has to explore the filesystem or look up a
  * skill (that exploration was the old noisy behaviour).
  */
-/** Roles implemented as skills; stubs carry `disable-model-invocation: true`. */
-function listImplementedRoles(): Array<{ slug: string; description: string }> {
-  const dir = path.join(PACKAGE_ROOT, "skills", "roles");
+/** Skills implemented in a `skills/<kind>/` directory; stubs carry `disable-model-invocation: true`. */
+function listImplemented(kind: string): Array<{ slug: string; description: string }> {
+  const dir = path.join(PACKAGE_ROOT, "skills", kind);
   if (!fs.existsSync(dir)) {
     return [];
   }
-  const roles: Array<{ slug: string; description: string }> = [];
+  const items: Array<{ slug: string; description: string }> = [];
   for (const slug of fs.readdirSync(dir)) {
     const file = path.join(dir, slug, "SKILL.md");
     if (!fs.existsSync(file)) {
       continue;
     }
     const text = fs.readFileSync(file, "utf8");
-    if (/^disable-model-invocation:\s*true\s*$/m.test(text) || text.includes("ЗАГЛУШКА")) {
+    if (/^disable-model-invocation:\s*true\s*$/m.test(text)) {
       continue;
     }
     const description = /^description:\s*"?([^"\n]+?)"?\s*$/m.exec(text)?.[1]?.trim() ?? slug;
-    roles.push({ slug, description });
+    items.push({ slug, description });
   }
-  return roles.sort((a, b) => a.slug.localeCompare(b.slug));
+  return items.sort((a, b) => a.slug.localeCompare(b.slug));
 }
 
 function buildOnboardPrompt(): string {
-  const roles = listImplementedRoles();
+  const roles = listImplemented("roles");
+  const purposes = listImplemented("purposes");
   const roleOptions =
     roles.length > 0 ? roles : [{ slug: "senior backend developer", description: "бэкенд, API, сервисы" }];
+  const purposeOptions =
+    purposes.length > 0 ? purposes : [{ slug: "веб-приложение / SaaS", description: "продукт для пользователей" }];
   return [
     "Онбординг pi-mini-boss.",
     "ВАЖНО: не исследуй файловую систему, не запускай команды, не ищи и не загружай скиллы — никаких ls/pwd/grep/skill_manage.",
@@ -77,14 +80,10 @@ function buildOnboardPrompt(): string {
         `    {label:"${role.slug}", description:"${role.description}"${index === 0 ? ", selected:true" : ""}}${index === roleOptions.length - 1 ? " ]}," : ","}`,
     ),
     '  {question:"Над чем ты работаешь?", header:"Назначение", options:[',
-    '    {label:"веб-приложение / SaaS", description:"продукт для пользователей", selected:true},',
-    '    {label:"бэкенд, API и сервисы", description:"серверная логика и интеграции"},',
-    '    {label:"мобильное приложение", description:"iOS / Android"},',
-    '    {label:"данные, аналитика и ML", description:"пайплайны, отчёты, модели"},',
-    '    {label:"маркетплейс / e-commerce", description:"продавцы, товары, заказы"},',
-    '    {label:"финтех / платежи", description:"деньги, транзакции, интеграции"},',
-    '    {label:"игры / графика / медиа", description:"рендер, звук, контент"},',
-    '    {label:"библиотека / SDK / опенсорс", description:"публичный код и API"} ]},',
+    ...purposeOptions.map(
+      (purpose, index) =>
+        `    {label:"${purpose.slug}", description:"${purpose.description}"${index === 0 ? ", selected:true" : ""}}${index === purposeOptions.length - 1 ? " ]}," : ","}`,
+    ),
     '  {question:"Язык общения?", header:"Язык", options:[',
     '    {label:"ru", description:"русский", selected:true},',
     '    {label:"en", description:"English"} ]},',
