@@ -239,7 +239,16 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     const { top, middle, bottom } = built[tab];
     // Tabs stick to the top, hints to the bottom; the spare space sits between.
     const padTotal = Math.max(0, maxRows - (top.length + middle.length + bottom.length));
-    const body = [...top, ...middle, ...new Array(padTotal).fill(""), ...bottom];
+    // Tabs stay at the top and hints at the bottom; the middle block is centred
+    // vertically inside the space that remains.
+    const padTop = Math.floor(padTotal / 2);
+    const body = [
+      ...top,
+      ...new Array(padTop).fill(""),
+      ...middle,
+      ...new Array(padTotal - padTop).fill(""),
+      ...bottom,
+    ];
 
     const heading =
       tab === REVIEW
