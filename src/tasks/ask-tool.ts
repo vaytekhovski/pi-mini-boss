@@ -235,6 +235,7 @@ export function registerAskTool(pi: ExtensionAPI): void {
       "If the user cancels, do NOT repeat the questions in chat — acknowledge briefly and stop.",
     ],
     parameters: ASK_PARAMETERS,
+    renderShell: "self",
     renderCall: () => hiddenRenderer,
     renderResult: () => hiddenRenderer,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx: ExtensionContext) {

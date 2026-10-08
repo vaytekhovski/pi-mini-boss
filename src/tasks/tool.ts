@@ -80,6 +80,7 @@ export function registerTaskTool(pi: ExtensionAPI, getStore: () => TaskStore): v
       "Never mark a task completed while its tests fail — keep it in_progress and add a blocker task.",
     ],
     parameters: TASK_PARAMETERS,
+    renderShell: "self",
     renderCall: () => hiddenRenderer,
     renderResult: () => hiddenRenderer,
     async execute(_toolCallId, params) {
