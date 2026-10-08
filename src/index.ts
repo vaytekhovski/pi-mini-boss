@@ -50,6 +50,8 @@ import { registerLearnMemoryCommand } from "./handlers/learn-memory.js";
 import { syncMarkdownMemoriesToSqlite, registerSyncMarkdownMemoriesCommand } from "./handlers/sync-markdown-memories.js";
 import { registerActivityStatus } from "./bootstrap/activity-status.js";
 import { registerBootstrap } from "./bootstrap/index.js";
+import { TaskStore } from "./tasks/store.js";
+import { registerTaskTool } from "./tasks/tool.js";
 import { registerPreviewContextCommand } from "./handlers/preview-context.js";
 import { registerStandingPinCommand } from "./handlers/standing-pin.js";
 import { StandingInstructions } from "./store/standing-instructions.js";
@@ -93,6 +95,13 @@ export function registerProjectSkillDiscoveryHandler(
 export default function (pi: ExtensionAPI) {
   registerActivityStatus(pi);
   registerBootstrap(pi);
+
+  // Shared task store — opened lazily on first use so compiled Pi never needs
+  // better-sqlite3 at extension load.
+  let taskStore: TaskStore | undefined;
+  const getTaskStore = (): TaskStore => (taskStore ??= new TaskStore());
+  registerTaskTool(pi, getTaskStore);
+
   const config = loadConfig();
   const lazy = config.lazyInitialization === true && config.memoryMode === "policy-only";
   let sessionContext: ExtensionContext | undefined;
