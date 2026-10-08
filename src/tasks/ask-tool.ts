@@ -193,14 +193,22 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
     const q = questions[qi];
     body.push(...wrapTextWithAnsi(theme.fg("text", q.question), innerW));
     body.push("");
+    const optionLines: string[] = [];
     q.options.forEach((option, index) => {
       const isSelected = selected[qi].has(index);
       const marker = isSelected ? theme.fg("accent", q.multiSelect ? "◉" : "●") : theme.fg("dim", "○");
       const star = recommended[qi].has(index) ? ` ${theme.fg("warning", "★")}` : "";
       const label = isSelected ? theme.fg("accent", option.label) : theme.fg("text", option.label);
       const desc = option.description ? ` ${theme.fg("muted", `— ${option.description}`)}` : "";
-      body.push(...wrapTextWithAnsi(`${marker} ${index + 1}. ${label}${star}${desc}`, innerW));
+      optionLines.push(...wrapTextWithAnsi(`${marker} ${index + 1}. ${label}${star}${desc}`, innerW));
     });
+    // The list is left-aligned as a block and centred horizontally as a whole.
+    const widest = optionLines.length > 0 ? Math.max(...optionLines.map((line) => visibleWidth(line))) : 0;
+    const indent = Math.max(0, Math.floor((innerW - widest) / 2));
+    for (const line of optionLines) {
+      const padded = " ".repeat(indent) + line;
+      body.push(padded + " ".repeat(Math.max(0, innerW - visibleWidth(padded))));
+    }
     body.push("");
     body.push(...wrapTextWithAnsi(theme.fg("dim", "1-9/Enter — выбрать"), innerW));
     body.push(...wrapTextWithAnsi(theme.fg("dim", "↑↓/←→ — вопросы"), innerW));
@@ -247,17 +255,20 @@ function createQuestionnaire(tui: any, theme: any, done: (result: AskResult) => 
         accent(left) + accent("─".repeat(before)) + label + accent("─".repeat(after)) + accent(right)
       );
     };
+    // The heading is centred on the full inner width; the Esc button overlays the
+    // rightmost dashes so it does not shift the centring.
     const close = ` ${theme.fg("muted", "Esc")} `;
+    const closeW = visibleWidth(close);
     const topLabel = accent(` ${heading} `);
-    const topInner = Math.max(1, w - 2 - visibleWidth(close));
-    const topPad = Math.max(0, topInner - visibleWidth(topLabel));
-    const topBefore = Math.floor(topPad / 2);
-    const topAfter = topPad - topBefore;
+    const inner = Math.max(1, w - 2);
+    const pad = Math.max(0, inner - visibleWidth(topLabel));
+    const topBefore = Math.floor(pad / 2);
+    const topAfter = pad - topBefore;
     const lines: string[] = [
       accent("╭") +
         accent("─".repeat(topBefore)) +
         topLabel +
-        accent("─".repeat(topAfter)) +
+        accent("─".repeat(Math.max(0, topAfter - closeW))) +
         close +
         accent("╮"),
     ];
@@ -344,7 +355,7 @@ export function registerAskTool(pi: ExtensionAPI): void {
           overlayOptions: {
             anchor: "center",
             minWidth: 40,
-            width: 56,
+            width: 64,
             margin: { top: 1, bottom: 1 },
           },
           onHandle: (h: HideHandle) => {
