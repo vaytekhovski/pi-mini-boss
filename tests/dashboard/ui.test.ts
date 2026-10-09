@@ -91,13 +91,15 @@ describe('dashboard ui', () => {
     assert.match(dark, /color-scheme:\s*dark/);
   });
 
-  it('keeps the board scroll inside the project block', () => {
-    assert.match(html, /\.boards\s*\{[^}]*overflow-x:\s*auto/);
+  it('gives every project the full window width and one row of status columns', () => {
+    assert.match(html, /\.boards\s*\{[^}]*flex-direction:\s*column/);
+    assert.match(html, /\.board-wrap\s*\{[^}]*width:\s*100%/);
     assert.match(html, /\.board-wrap\s*\{[^}]*max-height:/);
     assert.match(html, /\.board-head\s*\{[^}]*flex:\s*0 0 auto/);
     assert.match(html, /\.board-body\s*\{[^}]*overflow:\s*auto/);
-    assert.match(html, /\.board-wrap\s*\{[^}]*calc\(\(100vw - 318px\) \/ 2\)/);
+    assert.match(html, /\.board\s*\{[^}]*grid-auto-flow:\s*column/);
     assert.match(html, /\.board\s*\{[^}]*min-width:\s*0/);
+    assert.doesNotMatch(html, /100vw - 318px/);
   });
 
   it('renders a theme toggle button in the header', () => {

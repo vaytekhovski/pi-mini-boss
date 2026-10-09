@@ -115,9 +115,9 @@ export function renderDashboardHtml(): string {
   .hidden-panel .hidden-row { display: flex; gap: 10px; align-items: center; padding: 4px 0; }
   .hidden-panel .hidden-row .n { color: var(--muted); }
   .hidden-panel .hidden-row button { margin-left: auto; }
-  .boards { display: flex; gap: 16px; align-items: flex-start; overflow-x: auto; padding-top: 16px; padding-bottom: 4px; }
-  /* две доски в ряд: main = 100vw − 302 (2×18 padding + 250 sidebar + 16 gap .app); на две доски: (main − 16) / 2 = (100vw − 318) / 2. */
-  .board-wrap { flex: 0 0 clamp(560px, calc((100vw - 318px) / 2), 900px); display: flex; flex-direction: column; max-height: calc(100vh - 250px); min-height: 240px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); padding: 12px; }
+  .boards { display: flex; flex-direction: column; gap: 16px; padding-top: 16px; padding-bottom: 4px; }
+  /* доска во всю ширину окна: колонки статусов идут одним рядом, а не переносятся вниз; лишнее уходит в горизонтальный скролл .board-body. */
+  .board-wrap { flex: 0 0 auto; width: 100%; display: flex; flex-direction: column; max-height: calc(100vh - 250px); min-height: 240px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); padding: 12px; }
   .board-wrap.current { border-color: var(--accent); }
   .board-head { flex: 0 0 auto; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .board-head h2 { font: 700 15px/1.2 var(--serif); margin: 0; color: var(--ink); }
@@ -133,7 +133,7 @@ export function renderDashboardHtml(): string {
   .col-chips .lbl { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; margin-right: 2px; }
   .chip-btn.on { background: var(--accent); border-color: var(--accent); color: var(--card); }
   .chip-btn.off { opacity: .5; }
-  .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 12px; min-width: 0; }
+  .board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(190px, 1fr); gap: 12px; margin-top: 12px; min-width: 0; }
   .col { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; min-height: 80px; }
   .col.drag-over { border-color: var(--accent); background: var(--panel); }
   .col h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 8px; color: var(--muted); }
@@ -212,7 +212,6 @@ export function renderDashboardHtml(): string {
   @media (max-width: 900px) {
     .app { grid-template-columns: minmax(0, 1fr); }
     aside { position: static; order: -1; }
-    .board-wrap { flex-basis: 82vw; }
   }
 </style>
 <script>
