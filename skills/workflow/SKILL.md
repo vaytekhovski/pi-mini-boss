@@ -1,33 +1,46 @@
 ---
 name: workflow
-description: pi-mini-boss task workflow — plan → do → verify → close. Use for any non-trivial task to follow the module's task procedure, keep task status live, and close work with evidence.
+description: pi-mini-boss task workflow — анализ → планирование → разработка → ревью → тестирование → отчёт. Use for any non-trivial task to run the pipeline, delegate to subagents, keep task status live, and close work with evidence.
 ---
 
 # pi-mini-boss workflow
 
-The order is configured in `agent.yaml` → `workflow`. Follow it for every non-trivial task.
+Порядок задан в `agent.yaml` → `workflow`. Для любой нетривиальной задачи веди её по шести стадиям. Ты — **оркестратор**: раскладываешь каждый шаг на подшаги, делегируешь их субагентам (через инструмент `subagent` из пакета `pi-subagents`), а сам мониторишь, сводишь результат и отдаёшь пользователю отчёт.
 
-## 1. plan
-- Read the project's `AGENTS.md`/`CLAUDE.md` and the relevant plan/docs **first**.
-- Break the task into steps; create a todo per step and mark the current one `in_progress` **before** starting it.
-- Write the test cases / acceptance criteria before the code.
+Каталог субагентов (кто, какая модель, какой thinking, какой промпт) — в скилле `subagents`. Перед запуском субагента открой нужный файл каталога и собери промпт по нему.
 
-## 2. do
-- Smallest diff that works; reuse what already exists in the repo.
-- Update a task's status **in the same step** as the work (started → `in_progress`, done → `completed`) — never leave a stale status.
-- Keep expected errors explicit, not exceptions.
+## Общая механика
 
-## 3. verify
-- Build, lint, and tests must pass clean — no warnings.
-- Confirm a write actually landed; the build/test gate is authoritative, not IDE/LSP hints.
-- For behaviour or UI changes, do a manual check and record the evidence.
+- Заведи по задаче на каждый значимый шаг через `task`, отмечай текущую стадию **до** начала работы (`pending → analysis → planning → development → review → testing → report → completed`).
+- Держи дашборд живым: `boss activity "<что делаешь>"` в начале каждой стадии; `boss subagent name=<n> status=running|done|error detail="<что делает>"` при запуске/возврате субагента.
+- Есть вопросы — задай пользователю, не придумывай. Исключение: мелочь без значения, или явно просили не спрашивать. Важное — сохраняй через `memory_add` / `memory_search`.
 
-## 4. close
-- Mark the task `completed`.
-- Update docs/decisions when a decision was made.
-- Commit with a clear message.
+## 1. analysis — анализ
+- Прочитай `AGENTS.md`/`CLAUDE.md` проекта и релевантные docs/планы **первым**.
+- Субагент `analyst`: собери требования, контекст, ограничения, риски; верни структурированный разбор.
+- Итог: что нужно сделать, что уже есть, где неоднозначность (→ вопросы пользователю).
 
-## Rules
-- Do not change scope silently — surface it.
-- Never mark a task completed while its tests fail: keep it `in_progress` and add a blocker task.
-- Project/stack specifics stay in the project's `AGENTS.md` and project memory, not here.
+## 2. planning — планирование
+- Субагент `planner`: декомпозируй на шаги с критериями приёмки и тест-планом.
+- Заведи `task` на каждый шаг. Согласуй с пользователем, если план меняет scope.
+
+## 3. development — разработка
+- Субагент `implementer`: минимальный diff, переиспользуй существующее, обрабатывай ожидаемые ошибки явно.
+- Правки применяет субагент, но финальную сводку и проверку «правка легла в файл» делаешь ты.
+
+## 4. review — ревью
+- Субагент `reviewer`: проверь логику, безопасность, соответствие принятым решениям.
+- Замечания возвращай в разработку (статус `development`), не закрывай с непроверенным кодом.
+
+## 5. testing — тестирование
+- Субагент `tester`: прогони сборку/линт/тесты, проверь крайние случаи, собери доказательства.
+- Авторитетны сборка и тесты, а не диагностика IDE/LSP.
+
+## 6. report — отчёт
+- Субагент `reporter`: собери итог для пользователя (что сделано, чем проверено, что осталось).
+- Отметь задачи `completed`, обнови docs/decisions, закоммить с ясным сообщением.
+
+## Правила
+- Не меняй scope молча — всплывай наружу.
+- Никогда не отмечай задачу `completed`, пока её тесты падают: оставь в активной стадии и добавь блокер-задачу.
+- Стек/домен проекта — в `AGENTS.md` проекта и project-memory, а не здесь.

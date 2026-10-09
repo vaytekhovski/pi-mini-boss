@@ -17,13 +17,15 @@ role:
 
 # Универсальные правила поведения — без стека и домена (те — в AGENTS.md проекта).
 base_behavior:
+  - ты в первую очередь оркестратор — любую нетривиальную задачу веди по стандартному пайплайну (анализ → планирование → разработка → ревью → тестирование → отчёт), раскладывай каждый шаг на подшаги и делегируй их субагентам, а сам управляй ими, мониторь и отдавай пользователю отчёт
   - читай AGENTS.md/CLAUDE.md проекта первым и следуй его конвенциям
+  - если есть вопросы — задавай их пользователю, не придумывай сам; не спрашивай только про мелочи без значения или когда явно просили не задавать вопросов; важное запоминай в память через memory-инструменты
   - сборка и тесты проходят чисто — без предупреждений и ошибок
   - ожидаемые ошибки обрабатывай явно, не через исключения
   - проверяй, что правка реально легла в файл (не доверяй вызову edit)
   - авторитетны сборка и тесты, а не диагностика IDE/LSP
   - минимальный diff — не переусложняй
-  - обновляй статус задачи в ТОМ ЖЕ шаге, где сделана работа (начал → in_progress, сделал → completed) — пользователь никогда не должен видеть устаревшие статусы
+  - обновляй статус задачи в ТОМ ЖЕ шаге, где сделана работа (начал → соответствующая стадия пайплайна, сделал → completed) — пользователь никогда не должен видеть устаревшие статусы
 
 # Проверяется на старте: нет — ошибка и предложение установить.
 # Ядро (память, задачи) встроено в сам pi-mini-boss, поэтому внешних обязательных нет.
@@ -93,10 +95,10 @@ recommended_extensions:
   - { name: pi-web-access, why: "веб-доступ и работа с источниками", group: Поиск }
   - { name: "@ff-labs/pi-fff", why: "быстрый поиск по файлам и репозиторию", group: Поиск, selected: false }
   - { name: pi-web-search, why: "веб-поиск", group: Поиск, selected: false }
-  - { name: pi-mcp-adapter, why: "адаптер MCP-серверов", group: Поиск, selected: false }
+  - { name: pi-mcp-adapter, why: "адаптер MCP-серверов", group: Поиск }
   - { name: "@onkernel/browser-loop", why: "браузерные инструменты для агента", group: Поиск, selected: false }
   - { name: donsetch, why: "веб одним Rust-бинарем: fetch/search/crawl/screenshot", group: Поиск, selected: false }
-  - { name: pi-mcp-extension, why: "клиент MCP-серверов", group: Поиск, selected: false }
+  - { name: pi-mcp-extension, why: "клиент MCP-серверов", group: Поиск }
   - { name: pi-fabric, why: "программируемый рантайм инструментов и агентов", group: Поиск, selected: false }
   - { name: pi-ollama-cloud-link, why: "Ollama Cloud: модели, веб-поиск и fetch", group: Поиск, selected: false }
   - { name: "@maxiaochao/pi-toolkit", why: "браузерная автоматизация и утилиты", group: Поиск, selected: false }
@@ -123,12 +125,14 @@ recommended_extensions:
   - { name: "@agimon-ai/doompi-workflow", why: "графы workflow как в GitHub Actions, артефакты, восстановление", group: Делегирование, selected: false }
   - { name: "@agimon-ai/doompi-git", why: "сессии в изолированных git worktree", group: Делегирование, selected: false }
 
-# Процесс работы, которому следует агент.
+# Процесс работы, которому следует агент (шесть стадий пайплайна).
 workflow:
-  - plan
-  - do
-  - verify
-  - close
+  - analysis
+  - planning
+  - development
+  - review
+  - testing
+  - report
 
 # Сколько рассуждений генерировать и показывать (мапится на Pi defaultThinkingLevel / hideThinkingBlock).
 thinking:

@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-10-09
+
+Pipeline, subagents, and a live activity dashboard.
+
+### Added
+
+- **Standard pipeline as `workflow`** — `analysis → planning → development →
+  review → testing → report`, replacing the old `plan/do/verify/close`.
+- **Orchestrator-first base behavior** — the agent approaches every task as an
+  orchestrator, plans through the pipeline, delegates to subagents, monitors them,
+  and reports back; it asks the user instead of guessing and records answers
+  with the memory tools.
+- **Subagent catalogue** — six subagent roles (`skills/subagents/`): analyst,
+  planner, implementer, reviewer, tester, reporter, each declaring its purpose
+  and model (deepseek-flash / deepseek-v4-pro).
+- **Activity store + live panel** — the dashboard shows what the agent is doing
+  and which subagents are running, in real time. Every agent and subagent gets its
+  own row per project, so parallel projects no longer share one status (`runs`
+  gained a `project` column with an idempotent migration); starting a session for
+  a project marks its leftover `running`/`waiting` rows as done so the board never
+  shows a phantom "works".
+- **Task statuses across the pipeline** — `pending / analysis / planning /
+  development / review / testing / report / completed / blocked / deleted`.
+- **Editable tasks** — click a task on the board to edit it or move it between
+  stages; sidebar filters hide stages.
+- **Task projects** — every task belongs to a project (the session's directory or
+  repository, `inbox` outside one): the board migrates in place, legacy tasks are
+  bound to the current project, the `task` tool accepts `project` and exposes the
+  `projects` action, and the dashboard draws one board per project on a single
+  screen — collapse or hide the boards you don't need ("Показать скрытые" restores
+  them) and filter stages per board. Layout lives in the browser, not on the server.
+- **MCP recommended by default** — `pi-mcp-adapter` and `pi-mcp-extension` are
+  now marked ★ recommended in the extension catalogue.
+- **`boss` tool** — records agent/subagent activity and reports pipeline
+  progress to the user.
+- **Waiting-for-answer signal** — set automatically while a question panel
+  (`ask`, onboarding) is open and cleared once the user answers or cancels, or set
+  manually with `boss waiting=true` (`boss`'s `action` is now optional). Shown as
+  a "⏳ ждёт ответа" badge in the project's board header and globally in the page
+  header.
+- **Two dashboard themes** — a light "parchment" default and a dark graphite
+  theme, switched from the header, remembered in the browser (`localStorage`), and
+  applied before the first render so the page never flashes.
+- **Completion indicator** — a project whose tasks are all closed shows "✓ готово"
+  in its board header, next to the global working/waiting state.
+
+### Changed
+
+- `/dashboard` board is now pipeline-stage columns with per-stage filters and an
+  activity panel.
+- The `task` tool uses the new status set.
+
 ## [0.1.0] — 2026-10-08
 
 First release of **pi-mini-boss**, forked from `pi-hermes-memory` 0.9.10. It keeps

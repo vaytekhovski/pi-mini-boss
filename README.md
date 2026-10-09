@@ -66,10 +66,36 @@ your pick, **✓** what is already installed. Confirming records the choice, add
 the new packages to `~/.pi/agent/settings.json`, drops the unchecked ones, and
 fetches what changed. Restart Pi to load them.
 
+### Pipeline and subagents
+
+As an orchestrator, the agent runs every non-trivial task through a standard
+pipeline — **анализ → планирование → разработка → ревью → тестирование →
+отчёт** — splitting each step into sub-steps and delegating them to subagents it
+orchestrates and monitors. The subagent catalogue (`skills/subagents/`) ships
+six roles out of the box — analyst, planner, implementer, reviewer, tester,
+reporter — each with its own purpose and model (deepseek-flash for fast work,
+deepseek-v4-pro for heavy reasoning). The agent keeps the task board live and
+reports progress back to you.
+
 ### Tasks, memory and skills
 
-- The `task` tool keeps a list with live statuses; `/dashboard` opens a realtime
-  board on <http://localhost:7817>.
+- The `task` tool keeps a list with live statuses covering the whole pipeline;
+  `/dashboard` opens a realtime board on <http://localhost:7817> — drag a card
+  between stages, click it to edit, use the add row at the bottom of a column to
+  create a task, and watch a live activity panel showing what the agent and its
+  subagents are doing.
+- Tasks belong to a **project** — the session's directory, or `inbox` outside one.
+  The dashboard draws one board per project on a single screen, so several projects
+  running in parallel are visible at once; collapse or hide the boards you don't
+  need ("Показать скрытые" brings them back) and filter the stages per board.
+- Activity is per project too: the agent and each subagent get their own row on
+  the board they belong to, so parallel sessions never share one status.
+- The dashboard ships two themes — light "parchment" (default) and dark
+  graphite — switched from the header and remembered in the browser.
+- While a question panel is open (`ask`, onboarding) the project is marked
+  "⏳ ждёт ответа" — a badge in the board header and globally at the top of the
+  page — and cleared once you answer or cancel; the agent can also set it itself
+  with `boss waiting=true`. A board whose tasks are all closed shows "✓ готово".
 - `memory_add` / `memory_search` persist facts, decisions and failures across
   sessions; `session_search` searches past sessions. Data lives in
   `~/.pi/agent/pi-hermes-memory/`.

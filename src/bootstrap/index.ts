@@ -82,10 +82,10 @@ const TOUR = {
     title: "pi-mini-boss — что уже работает",
     body: [
       "- **Память между сессиями** — `memory_add` / `memory_search`: факты, решения и ошибки сохраняются и находятся позже; прошлые сессии индексируются и ищутся. Личные правила «навсегда» — `/memory-pin` (STANDING.md).",
-      "- **Задачи и веб-доска** — инструмент `task` со статусами (pending → in_progress → completed / blocked) и доска в браузере: `/dashboard` поднимает локальный сервер и показывает прогресс в реальном времени.",
+      "- **Задачи и веб-доска** — инструмент `task` со статусами пайплайна (pending → analysis → planning → development → review → testing → report → completed / blocked) и доска в браузере: `/dashboard` поднимает локальный сервер и показывает задачи и активность (чем занят агент и субагенты) в реальном времени.",
       "- **Панель вопросов** — инструмент `ask`: оверлей с вкладками, мультивыбором и живым переключением языка (это то, что откроется сейчас).",
       "- **Роли и назначения** — профиль агента: поведение и язык, при желании — модель, уровень thinking и набор активных инструментов.",
-      "- **Процесс работы** — скилл `workflow`: план → работа → проверка → закрытие; статус задачи обновляется в том же шаге.",
+      "- **Процесс работы** — скилл `workflow`: анализ → планирование → разработка → ревью → тестирование → отчёт; каждый шаг делегируется субагентам (каталог `subagents`), статус обновляется в том же шаге.",
       "- **Команды** — `/onboard` (настройка), `/extensions` (добавить или отключить расширения), `/language` и `/profile` (сменить язык, роль, назначение), `/mini-boss` (текущая настройка), `/dashboard` (веб-доска задач), `/memory-pin` (правила навсегда).",
       "",
       "_Дальше — три окна настройки: язык → роль → расширения._",
@@ -95,10 +95,10 @@ const TOUR = {
     title: "pi-mini-boss — what already works",
     body: [
       "- **Memory across sessions** — `memory_add` / `memory_search`: facts, decisions and failures are saved and found later; past sessions are indexed and searchable. Permanent personal rules — `/memory-pin` (STANDING.md).",
-      "- **Tasks and a web board** — the `task` tool with statuses (pending → in_progress → completed / blocked) and a browser board: `/dashboard` starts a local server and shows progress in real time.",
+      "- **Tasks and a web board** — the `task` tool with pipeline statuses (pending → analysis → planning → development → review → testing → report → completed / blocked) and a browser board: `/dashboard` starts a local server and shows tasks and activity (what the agent and subagents are doing) in real time.",
       "- **Question panel** — the `ask` tool: an overlay with tabs, multi-select and live language switching (this is what opens next).",
       "- **Roles and purposes** — an agent profile: behaviour and language, optionally the model, thinking level and active tool set.",
-      "- **Working process** — the `workflow` skill: plan → do → verify → close; task status updates in the same step.",
+      "- **Working process** — the `workflow` skill: analysis → planning → development → review → testing → report; each step is delegated to subagents (the `subagents` catalog); status updates in the same step.",
       "- **Commands** — `/onboard` (setup), `/extensions` (add or switch off extensions), `/language` and `/profile` (change language, role, purpose), `/mini-boss` (current setup), `/dashboard` (task web board), `/memory-pin` (permanent rules).",
       "",
       "_Next: three windows of setup — language → role → extensions._",
@@ -209,7 +209,7 @@ async function pickAndSaveRole(
   questions: QuestionSpec[],
   apply: (answers: AskResult["answers"]) => Partial<AgentRole>,
 ): Promise<void> {
-  const result = await runQuestionnaire(ctx.ui, questions, configLanguage());
+  const result = await runQuestionnaire(ctx.ui, questions, configLanguage(), undefined, ctx.cwd);
   if (!result || result.cancelled) {
     return;
   }
@@ -334,7 +334,7 @@ export function registerBootstrap(pi: ExtensionAPI): void {
       const english = configLanguage() === "en";
       // The panel is opened by the extension itself: the answer is applied here,
       // so no model turn can get it wrong.
-      const result = await runQuestionnaire(ctx.ui, extensionQuestions(), configLanguage());
+      const result = await runQuestionnaire(ctx.ui, extensionQuestions(), configLanguage(), undefined, ctx.cwd);
       if (!result || result.cancelled) {
         return;
       }

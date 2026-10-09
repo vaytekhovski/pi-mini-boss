@@ -1,6 +1,6 @@
 {
   "name": "pi-mini-boss",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Bootstrap module for Pi: agent config, first-run onboarding, extension catalogue, roles and purposes, tasks with a web board, and persistent memory. Fork of pi-hermes-memory.",
   "type": "module",
   "main": "src/index.ts",

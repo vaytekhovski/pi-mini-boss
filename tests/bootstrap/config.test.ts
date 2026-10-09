@@ -20,7 +20,7 @@ describe('bootstrap config', () => {
       config.base_behavior.some((rule) => rule.includes('устаревшие статусы')),
       'core keeps the realtime-status rule',
     );
-    assert.deepEqual(config.workflow, ['plan', 'do', 'verify', 'close']);
+    assert.deepEqual(config.workflow, ['analysis', 'planning', 'development', 'review', 'testing', 'report']);
     assert.ok(config.thinking?.level, 'thinking.level is set');
     // Memory and tasks ship inside the module, so nothing external is required.
     assert.deepEqual(config.required_extensions, []);
