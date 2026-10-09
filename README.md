@@ -39,15 +39,6 @@ module can do runs before them and again after setup.
 | `/mini-boss` | show the current setup and the command list |
 | `/extensions` | add or switch off extensions |
 | `/dashboard` | task board in the browser (port 7817) |
-| `/memory-pin` | rules that must hold in every session |
-| `/memory-insights` | show what is stored in persistent memory |
-| `/memory-consolidate` | merge entries and free space |
-| `/memory-interview` | answer a few questions to pre-fill your user profile |
-| `/memory-skills` | manage procedural skills |
-| `/memory-preview-context` | preview what memory is injected |
-| `/memory-switch-project` | switch the active project scope |
-| `/memory-index-sessions` | import past sessions into search |
-| `/memory-sync-markdown` | rebuild the search mirror from markdown |
 
 ## What you get
 
