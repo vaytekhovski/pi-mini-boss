@@ -105,6 +105,24 @@ export interface AskResult {
 /** The narrow surface of the overlay handle we need. */
 type HideHandle = { setHidden(hidden: boolean): void };
 
+/**
+ * Reports that the question panel is (not) waiting for the user. A module-level
+ * callback keeps ask-tool free of any activity-store import cycle.
+ */
+let waitingReporter: ((waiting: boolean, cwd?: string) => void) | undefined;
+export function setWaitingReporter(fn?: (waiting: boolean, cwd?: string) => void): void {
+  waitingReporter = fn;
+}
+
+/** Сообщить панельному репортёру, не давая телеметрии уронить панель. */
+function notifyWaiting(waiting: boolean, cwd?: string): void {
+  try {
+    waitingReporter?.(waiting, cwd);
+  } catch {
+    /* панель вопросов важнее телеметрии */
+  }
+}
+
 // ── Overlay visibility (module scope so the global shortcut can reach it) ──
 let activeOverlay: { setHidden(hidden: boolean): void; refresh(): void } | undefined;
 let overlayHidden = false;
@@ -425,38 +443,48 @@ export async function runQuestionnaire(
   questions: QuestionSpec[],
   locale?: string,
   onHiding?: () => void,
+  cwd?: string,
 ): Promise<AskResult | null> {
   let handle: HideHandle | undefined;
   overlayHidden = false;
   onHidden = onHiding;
-  const result = await ui.custom<AskResult | null>(
-    (tui, theme, _kb, done) => {
-      const component = createQuestionnaire(tui, theme, done, questions, locale);
-      activeOverlay = {
-        setHidden: (hidden: boolean) => handle?.setHidden(hidden),
-        refresh: () => {
-          component.invalidate();
-          tui.requestRender();
+  // The panel is about to open: mark the agent as waiting for the user. The
+  // signal is cleared in `finally`, so Esc, an exception or any other exit
+  // cannot leave the dashboard stuck on "waiting".
+  notifyWaiting(true, cwd);
+  let result: AskResult | null = null;
+  try {
+    result = await ui.custom<AskResult | null>(
+      (tui, theme, _kb, done) => {
+        const component = createQuestionnaire(tui, theme, done, questions, locale);
+        activeOverlay = {
+          setHidden: (hidden: boolean) => handle?.setHidden(hidden),
+          refresh: () => {
+            component.invalidate();
+            tui.requestRender();
+          },
+        };
+        return component;
+      },
+      {
+        overlay: true,
+        overlayOptions: {
+          anchor: "center",
+          minWidth: 40,
+          width: 120,
+          margin: { top: 1, bottom: 1 },
         },
-      };
-      return component;
-    },
-    {
-      overlay: true,
-      overlayOptions: {
-        anchor: "center",
-        minWidth: 40,
-        width: 120,
-        margin: { top: 1, bottom: 1 },
+        onHandle: (h: HideHandle) => {
+          handle = h;
+        },
       },
-      onHandle: (h: HideHandle) => {
-        handle = h;
-      },
-    },
-  );
-  activeOverlay = undefined;
-  overlayHidden = false;
-  onHidden = undefined;
+    );
+  } finally {
+    notifyWaiting(false, cwd);
+    activeOverlay = undefined;
+    overlayHidden = false;
+    onHidden = undefined;
+  }
   return result;
 }
 
@@ -510,7 +538,7 @@ export function registerAskTool(pi: ExtensionAPI): void {
 
       const result = await runQuestionnaire(ctx.ui, questions, input.locale, () => {
         ctx.ui.notify("Панель вопросов скрыта. Нажми Ctrl+H, чтобы вернуть её.", "info");
-      });
+      }, ctx?.cwd);
 
       if (!result || result.cancelled) {
         return text(

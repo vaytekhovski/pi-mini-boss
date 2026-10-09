@@ -7,10 +7,16 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { TaskStore } from "../tasks/store.js";
+import type { ActivityStore } from "../activity/store.js";
 import { DEFAULT_DASHBOARD_PORT, startDashboard, type DashboardHandle } from "./server.js";
 
 /** Register the `/dashboard` command and its shutdown cleanup. */
-export function registerDashboard(pi: ExtensionAPI, getStore: () => TaskStore): void {
+export function registerDashboard(
+  pi: ExtensionAPI,
+  getStore: () => TaskStore,
+  getActivity: () => ActivityStore,
+  projectsMemoryDir?: string,
+): void {
   let handle: DashboardHandle | undefined;
   let starting: Promise<DashboardHandle> | undefined;
 
@@ -18,7 +24,13 @@ export function registerDashboard(pi: ExtensionAPI, getStore: () => TaskStore): 
     description: "Открыть веб-дашборд задач (реалтайм, SSE)",
     handler: async (_args, ctx) => {
       if (!handle) {
-        starting ??= startDashboard(getStore(), DEFAULT_DASHBOARD_PORT);
+        starting ??= startDashboard(
+          getStore(),
+          getActivity(),
+          DEFAULT_DASHBOARD_PORT,
+          projectsMemoryDir,
+          ctx.cwd,
+        );
         try {
           handle = await starting;
         } catch (err) {

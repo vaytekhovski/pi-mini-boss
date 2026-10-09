@@ -52,7 +52,9 @@ import { registerActivityStatus } from "./bootstrap/activity-status.js";
 import { registerBootstrap } from "./bootstrap/index.js";
 import { TaskStore } from "./tasks/store.js";
 import { registerTaskTool } from "./tasks/tool.js";
-import { registerAskTool } from "./tasks/ask-tool.js";
+import { registerAskTool, setWaitingReporter } from "./tasks/ask-tool.js";
+import { ActivityStore } from "./activity/store.js";
+import { registerBossTool, resolveActivityProject } from "./activity/tool.js";
 import { registerDashboard } from "./dashboard/index.js";
 import { registerPreviewContextCommand } from "./handlers/preview-context.js";
 import { registerStandingPinCommand } from "./handlers/standing-pin.js";
@@ -98,15 +100,30 @@ export default function (pi: ExtensionAPI) {
   registerActivityStatus(pi);
   registerBootstrap(pi);
 
+  const config = loadConfig();
+
   // Shared task store — opened lazily on first use so compiled Pi never needs
   // better-sqlite3 at extension load.
   let taskStore: TaskStore | undefined;
   const getTaskStore = (): TaskStore => (taskStore ??= new TaskStore());
-  registerTaskTool(pi, getTaskStore);
+  registerTaskTool(pi, getTaskStore, config.projectsMemoryDir);
   registerAskTool(pi);
-  registerDashboard(pi, getTaskStore);
 
-  const config = loadConfig();
+  // Activity store — the realtime "who is doing what" feed for the dashboard.
+  let activityStore: ActivityStore | undefined;
+  const getActivityStore = (): ActivityStore => (activityStore ??= new ActivityStore());
+  registerBossTool(pi, getActivityStore, config.projectsMemoryDir);
+  // The ask panel drives the dashboard's explicit "agent is waiting" signal.
+  // Двойная защита: активность — телеметрия, панель вопросов важнее неё.
+  setWaitingReporter((waiting, cwd) => {
+    try {
+      getActivityStore().setWaiting(waiting, resolveActivityProject(config.projectsMemoryDir, cwd));
+    } catch {
+      /* активность не должна ронять панель вопросов */
+    }
+  });
+  registerDashboard(pi, getTaskStore, getActivityStore, config.projectsMemoryDir);
+
   const lazy = config.lazyInitialization === true && config.memoryMode === "policy-only";
   let sessionContext: ExtensionContext | undefined;
 
@@ -302,6 +319,14 @@ export default function (pi: ExtensionAPI) {
     refreshSkillProjectContext(ctx.cwd);
     await skillStore.migrateLegacySkills();
     await skillStore.ensureDiscoveredRoots();
+    // Свежая сессия проекта означает: ничего из прошлой не работает. Окно в 10
+    // минут не трогает живую параллельную сессию того же проекта — она пишет чаще.
+    try {
+      getActivityStore().finishStaleProjects(
+        [resolveActivityProject(config.projectsMemoryDir, ctx.cwd), ""],
+        Date.now() - 10 * 60 * 1000,
+      );
+    } catch { /* активность не должна ломать старт сессии */ }
   });
 
   registerProjectSkillDiscoveryHandler(pi, skillStore, config.projectsMemoryDir);
@@ -470,5 +495,9 @@ export default function (pi: ExtensionAPI) {
         measureLifecycleSync("shutdown.database-close", () => dbManager.close());
       } catch { /* best effort — never block shutdown */ }
     }
+    // Сессия завершилась — её активность больше не работает; закрыть точно.
+    try {
+      getActivityStore().finishStaleProjects([resolveActivityProject(config.projectsMemoryDir, ctx.cwd)]);
+    } catch { /* активность не должна блокировать завершение сессии */ }
   });
 }
