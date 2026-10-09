@@ -495,9 +495,15 @@ export default function (pi: ExtensionAPI) {
         measureLifecycleSync("shutdown.database-close", () => dbManager.close());
       } catch { /* best effort — never block shutdown */ }
     }
-    // Сессия завершилась — её активность больше не работает; закрыть точно.
+    // Сессия завершилась — закрываем только её уже протухшую активность.
+    // Окно в 10 минут (как в session_start) не трогает живую параллельную сессию
+    // того же проекта: фоновые сабагенты/воркфлоу делят cwd с основной сессией и
+    // пишут `boss` редко, поэтому без окна их shutdown стирал бы live-строки основной.
     try {
-      getActivityStore().finishStaleProjects([resolveActivityProject(config.projectsMemoryDir, ctx.cwd)]);
+      getActivityStore().finishStaleProjects(
+        [resolveActivityProject(config.projectsMemoryDir, ctx.cwd)],
+        Date.now() - 10 * 60 * 1000,
+      );
     } catch { /* активность не должна блокировать завершение сессии */ }
   });
 }
