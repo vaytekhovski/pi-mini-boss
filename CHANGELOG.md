@@ -40,6 +40,16 @@ correction detection, consolidation, skills — and adds the bootstrap layer.
 > The entries under `[Unreleased]` below were written upstream before this fork; their
 > code ships in this release.
 
+## [0.2.0] — Unreleased
+
+### Added
+
+- **`/language`, `/profile`, `/mini-boss`** — leaner alternatives to re-running the whole
+  onboarding. `/language` reopens only the language panel, `/profile` only the role and
+  purpose tabs; both merge the choice into `agent.yaml` and leave everything else alone.
+  `/mini-boss` prints the current setup (role, purpose, language, onboarding status, chosen
+  extensions, config path) plus the command list.
+
 ## [Unreleased]
 
 ### Changed

@@ -4,18 +4,23 @@
  *   • injects role + base_behavior + workflow into every system prompt;
  *   • exposes /onboard to (re)configure.
  */
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
   DEFAULT_CONFIG_PATH,
+  PACKAGE_ROOT,
   USER_CONFIG_PATH,
   loadAgentConfig,
   needsOnboarding,
+  saveAgentConfig,
   type AgentConfig,
+  type AgentRole,
 } from "./config.js";
 import { checkExtensions, installSelectedExtensions } from "./extension-check.js";
 import { applyExtensionSelection, syncDeclaredPackages } from "./extension-selection.js";
-import { extensionQuestions, installedCatalogNames } from "./questions.js";
-import { runQuestionnaire } from "../tasks/ask-tool.js";
+import { extensionQuestions, installedCatalogNames, languageQuestion, roleQuestions } from "./questions.js";
+import { runQuestionnaire, type AskResult, type QuestionSpec } from "../tasks/ask-tool.js";
 
 /** Render the role + core rules + workflow as a system-prompt section. */
 function buildSystemPromptBlock(config: AgentConfig): string {
@@ -81,7 +86,7 @@ const TOUR = {
       "- **Панель вопросов** — инструмент `ask`: оверлей с вкладками, мультивыбором и живым переключением языка (это то, что откроется сейчас).",
       "- **Роли и назначения** — профиль агента: поведение и язык, при желании — модель, уровень thinking и набор активных инструментов.",
       "- **Процесс работы** — скилл `workflow`: план → работа → проверка → закрытие; статус задачи обновляется в том же шаге.",
-      "- **Команды** — `/onboard` (настройка), `/extensions` (добавить или отключить расширения), `/dashboard` (веб-доска задач), `/memory-pin` (правила навсегда).",
+      "- **Команды** — `/onboard` (настройка), `/extensions` (добавить или отключить расширения), `/language` и `/profile` (сменить язык, роль, назначение), `/mini-boss` (текущая настройка), `/dashboard` (веб-доска задач), `/memory-pin` (правила навсегда).",
       "",
       "_Дальше — три окна настройки: язык → роль → расширения._",
     ].join("\n"),
@@ -94,7 +99,7 @@ const TOUR = {
       "- **Question panel** — the `ask` tool: an overlay with tabs, multi-select and live language switching (this is what opens next).",
       "- **Roles and purposes** — an agent profile: behaviour and language, optionally the model, thinking level and active tool set.",
       "- **Working process** — the `workflow` skill: plan → do → verify → close; task status updates in the same step.",
-      "- **Commands** — `/onboard` (setup), `/extensions` (add or switch off extensions), `/dashboard` (task web board), `/memory-pin` (permanent rules).",
+      "- **Commands** — `/onboard` (setup), `/extensions` (add or switch off extensions), `/language` and `/profile` (change language, role, purpose), `/mini-boss` (current setup), `/dashboard` (task web board), `/memory-pin` (permanent rules).",
       "",
       "_Next: three windows of setup — language → role → extensions._",
     ].join("\n"),
@@ -110,6 +115,60 @@ function tourText(language: string, title?: string): string {
 /** The language currently saved in the user config. */
 function configLanguage(): string {
   return loadAgentConfig().role.language === "en" ? "en" : "ru";
+}
+
+/** Role patch from the /language panel answers. */
+export function languageFromAnswers(answers: AskResult["answers"]): Partial<AgentRole> {
+  return { language: answers[0]?.labels[0] === "en" ? "en" : "ru" };
+}
+
+/**
+ * Role patch from the /profile panel answers. The panel is built by
+ * `roleQuestions()`, whose tabs are always role first, purpose second.
+ */
+export function profileFromAnswers(answers: AskResult["answers"]): Partial<AgentRole> {
+  return {
+    ...(answers[0]?.labels[0] ? { name: answers[0].labels[0] } : {}),
+    ...(answers[1]?.labels[0] ? { purpose: answers[1].labels[0] } : {}),
+  };
+}
+
+/** Version from the shipped package.json, or "?" when unreadable. */
+function packageVersion(): string {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, "package.json"), "utf8")) as {
+      version?: string;
+    };
+    return raw.version ?? "?";
+  } catch {
+    return "?";
+  }
+}
+
+/** Human-readable summary of the package and the current agent config. */
+export function buildInfoText(config: AgentConfig, version: string): string {
+  const english = (config.role?.language ?? "ru") === "en";
+  const chosen = (config.recommended_extensions ?? [])
+    .filter((ext) => ext.selected !== false)
+    .map((ext) => ext.name);
+  const onboarded = config.onboarded === true;
+  return [
+    `**pi-mini-boss ${version}**`,
+    "",
+    `- ${english ? "Role" : "Роль"}: ${config.role?.name ?? "—"}`,
+    `- ${english ? "Purpose" : "Назначение"}: ${config.role?.purpose ?? "—"}`,
+    `- ${english ? "Language" : "Язык"}: ${config.role?.language ?? "ru"}`,
+    `- ${english ? "Onboarding" : "Онбординг"}: ${
+      onboarded
+        ? english ? "done" : "пройден"
+        : english ? "not done — run /onboard" : "не пройден — запусти /onboard"
+    }`,
+    `- ${english ? "Extensions" : "Расширения"}: ${chosen.length} ${english ? "selected" : "выбрано"}`,
+    `  ${chosen.join(", ") || "—"}`,
+    `- ${english ? "Config" : "Конфиг"}: ${USER_CONFIG_PATH}`,
+    "",
+    `${english ? "Commands" : "Команды"}: /onboard · /extensions · /language · /profile · /mini-boss · /dashboard · /memory-pin`,
+  ].join("\n");
 }
 
 /**
@@ -138,6 +197,27 @@ async function applyRoleProfile(pi: ExtensionAPI, ctx: ExtensionContext): Promis
   if (role.tools && role.tools.length > 0) {
     pi.setActiveTools(role.tools);
   }
+}
+
+/**
+ * Open a panel and merge the resulting role patch into the user config. Used by
+ * the /language and /profile commands, which change one part of the profile
+ * without re-running the whole onboarding.
+ */
+async function pickAndSaveRole(
+  ctx: ExtensionContext,
+  questions: QuestionSpec[],
+  apply: (answers: AskResult["answers"]) => Partial<AgentRole>,
+): Promise<void> {
+  const result = await runQuestionnaire(ctx.ui, questions, configLanguage());
+  if (!result || result.cancelled) {
+    return;
+  }
+  const config = loadAgentConfig();
+  const patch = apply(result.answers);
+  saveAgentConfig({ ...config, role: { ...config.role, ...patch } });
+  const english = (patch.language ?? config.role.language) === "en";
+  ctx.ui.notify(english ? "pi-mini-boss: saved" : "pi-mini-boss: сохранено", "info");
 }
 
 /** Register the bootstrap lifecycle hooks and the /onboard command. */
@@ -277,6 +357,42 @@ export function registerBootstrap(pi: ExtensionAPI): void {
           : `pi-mini-boss: выбрано ${selected.length} · добавил ${added.length} · снял ${removed.length}`) +
           tail,
         "info",
+      );
+    },
+  });
+
+  pi.registerCommand("language", {
+    description: "Сменить язык общения",
+    handler: async (_args, ctx) => {
+      if (!ctx.hasUI) {
+        return;
+      }
+      await ctx.waitForIdle();
+      await pickAndSaveRole(ctx, [languageQuestion()], languageFromAnswers);
+    },
+  });
+
+  pi.registerCommand("profile", {
+    description: "Сменить роль и назначение",
+    handler: async (_args, ctx) => {
+      if (!ctx.hasUI) {
+        return;
+      }
+      await ctx.waitForIdle();
+      await pickAndSaveRole(ctx, roleQuestions(), profileFromAnswers);
+    },
+  });
+
+  pi.registerCommand("mini-boss", {
+    description: "Показать текущую настройку pi-mini-boss",
+    handler: async () => {
+      await pi.sendMessage(
+        {
+          customType: "pi-mini-boss:info",
+          content: buildInfoText(loadAgentConfig(), packageVersion()),
+          display: true,
+        },
+        { triggerTurn: false },
       );
     },
   });

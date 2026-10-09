@@ -1,17 +1,22 @@
 # pi-mini-boss
 
-Bootstrap module for [Pi](https://pi.dev): agent config, first-run onboarding, roles and
-purposes, an extension catalogue, and tasks with a web board — plus the persistent
-memory, session search and skills it forked from
+Bootstrap for [Pi](https://pi.dev): a one-time setup that gives the agent a role,
+a purpose, a language, a chosen set of extensions, and a task board — plus the
+persistent memory, session search and skills from
 [pi-hermes-memory](https://github.com/chandra447/pi-hermes-memory).
 
-Install it once, run `/onboard`, and every session after that knows who the agent is,
-what you work on, which extensions you picked, and what it must always check.
+Install it once, run `/onboard`, and every session after that knows who the agent
+is, what you work on, which extensions you picked, and what it must always check.
 
 ## Install
 
+Requires Pi `>= 0.80.6`.
+
 ```bash
 pi install npm:pi-mini-boss
+
+# from git
+pi install git:github.com/vaytekhovski/pi-mini-boss
 ```
 
 Start a session and run:
@@ -20,78 +25,21 @@ Start a session and run:
 /onboard
 ```
 
-Three windows follow — language → role and purpose → extensions — plus a fourth only if
-something you switched off is still installed. Before they open you get a short tour of
-what the module can do; it is repeated once setup finishes, so nobody misses it.
-
-## What you get
-
-### Config: `agent.yaml`
-
-One file, shipped as a template (`config/agent.yaml`) and resolved per user to
-`~/.pi/agent/pi-mini-boss/agent.yaml`.
-
-| Key | Owner | What it does |
-|---|---|---|
-| `role.name` / `role.purpose` / `role.language` | you | who the agent is, what it works on, how it talks |
-| `role.model` / `role.thinking` / `role.tools` | you, optional | applied at session start |
-| `base_behavior` | module | universal rules — no stack, no project, no domain |
-| `workflow` | module | the process the agent follows |
-| `thinking` | module | how much reasoning is generated and shown |
-| `required_extensions` | module | checked at startup (empty today) |
-| `recommended_extensions` | you | the catalogue and what you picked |
-
-`role.name` is a skill: profiles live under `skills/roles/` and the matching one is
-applied (its focus, profile and what to check). Purposes work the same way, from
-`skills/purposes/`.
-
-### Extensions: pick once, reconfigure any time
-
-Onboarding's third window offers a catalogue of ~70 packages grouped into eight tabs —
-context and sessions, quality, safety, planning, UI, search, observability, delegation.
-**★** marks the module's recommendation, **◉** what you picked, **✓** what is already
-installed.
-
-```bash
-/extensions   # reopen the same panel whenever you like
-```
-
-Confirming does three things: your `agent.yaml` records the choice, newly picked
-extensions are declared in `~/.pi/agent/settings.json` as `npm:<name>`, and unchecked
-ones lose their declaration — Pi stops loading them, while the npm copies stay on disk,
-so ticking the box again is instant. The module then runs the update itself; nothing has
-to be typed into a shell. Restart Pi to load what changed.
-
-### Tasks and the web board
-
-The `task` tool keeps a list with live statuses (`pending` → `in_progress` →
-`completed`, plus `blocked`). `/dashboard` starts a local Hono server on
-<http://localhost:7817> with a realtime (SSE) board — open it in a browser while the
-agent works.
-
-### Memory and session search
-
-Inherited from pi-hermes-memory and kept intact: `memory_add` / `memory_search`,
-`session_search` across past sessions, failure memory, correction detection,
-auto-consolidation, and skill storage. Data lives in `~/.pi/agent/pi-hermes-memory/`.
-
-### Standing instructions vs `base_behavior`
-
-- `base_behavior` (in `agent.yaml`) — the module's rules, shipped with the package and
-  replaced on update.
-- `/memory-pin` — **your** rules, injected into every session, never touched by a
-  package update. Stored in `~/.pi/agent/pi-hermes-memory/STANDING.md` (20 entries /
-  2000 characters). Deliberately a slash command rather than a tool: the model cannot
-  write standing instructions for itself.
+Three windows follow — language → role and purpose → extensions — plus a fourth
+only when something you switched off is still installed. A short tour of what the
+module can do runs before them and again after setup.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
 | `/onboard` | full setup: language, role, purpose, extensions |
+| `/language` | change the language only |
+| `/profile` | change role and purpose only |
+| `/mini-boss` | show the current setup and the command list |
 | `/extensions` | add or switch off extensions |
 | `/dashboard` | task board in the browser (port 7817) |
-| `/memory-pin [list \| remove <n> \| clear]` | rules that must hold in every session |
+| `/memory-pin` | rules that must hold in every session |
 | `/memory-insights` | show what is stored in persistent memory |
 | `/memory-consolidate` | merge entries and free space |
 | `/memory-interview` | answer a few questions to pre-fill your user profile |
@@ -101,18 +49,58 @@ auto-consolidation, and skill storage. Data lives in `~/.pi/agent/pi-hermes-memo
 | `/memory-index-sessions` | import past sessions into search |
 | `/memory-sync-markdown` | rebuild the search mirror from markdown |
 
+## What you get
+
+### Config: `agent.yaml`
+
+One file, shipped as a template (`config/agent.yaml`) and resolved per user to
+`~/.pi/agent/pi-mini-boss/agent.yaml`. `/onboard`, `/language` and `/profile`
+write it for you, but you can edit it by hand:
+
+| Key | Owner | What it does |
+|---|---|---|
+| `role.name` / `role.purpose` / `role.language` | you | who the agent is, what it works on, how it talks |
+| `role.model` / `role.thinking` / `role.tools` | you, optional | applied at session start |
+| `base_behavior` / `workflow` / `thinking` | module | universal rules and the working process |
+| `required_extensions` / `recommended_extensions` | module / you | checked at startup; the catalogue and your picks |
+
+`role.name` and `role.purpose` are skills: the matching profile under
+`skills/roles/` or `skills/purposes/` is applied.
+
+### Extensions
+
+Pick once in onboarding, reconfigure any time with `/extensions`. The catalogue
+has ~70 packages grouped into eight tabs; **★** marks the recommendation, **◉**
+your pick, **✓** what is already installed. Confirming records the choice, adds
+the new packages to `~/.pi/agent/settings.json`, drops the unchecked ones, and
+fetches what changed. Restart Pi to load them.
+
+### Tasks, memory and skills
+
+- The `task` tool keeps a list with live statuses; `/dashboard` opens a realtime
+  board on <http://localhost:7817>.
+- `memory_add` / `memory_search` persist facts, decisions and failures across
+  sessions; `session_search` searches past sessions. Data lives in
+  `~/.pi/agent/pi-hermes-memory/`.
+- `/memory-pin` stores **your** rules for every session, in a file a package
+  update never touches. Deliberately a slash command, not a tool: the model
+  cannot write standing instructions for itself.
+
 ## Development
 
 ```bash
+npm install
 npm run check   # typecheck
 npm test        # unit tests
 ```
 
+Run a local copy without installing it: `pi -e ./src/index.ts`.
+
 ## Credits
 
 Forked from [pi-hermes-memory](https://github.com/chandra447/pi-hermes-memory) by
-chandra447 (MIT): the memory system, session search and skills come from there. The
-bootstrap layer — config, onboarding, roles, extension catalogue, task board — is this
+chandra447 (MIT): memory, session search and skills come from there. The bootstrap
+layer — config, onboarding, roles, extension catalogue, task board — is this
 package's own.
 
 ## License
